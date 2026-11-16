@@ -83,6 +83,12 @@ export default {
     resizeListener: null,
     resizeObserver: null,
     initialized: false,
+    // true while the element is hidden (display: none on itself or on an ancestor, detached by keep-alive, ...)
+    hidden: false,
+    deactivated: false,
+    showFrame: null,
+    // cached content offsets, read on every scroll event; invalidated on (re)initialisation and resize
+    cachedContentPos: null,
     watch: {
         numToleratedItems(newValue) {
             this.d_numToleratedItems = newValue;
@@ -91,15 +97,6 @@ export default {
             if (this.lazy && newValue !== oldValue && newValue !== this.d_loading) {
                 this.d_loading = newValue;
             }
-        },
-        items: {
-            handler(newValue, oldValue) {
-                if (!oldValue || oldValue.length !== (newValue || []).length) {
-                    this.init();
-                    this.calculateAutoSize();
-                }
-            },
-            deep: true
         },
         itemSize() {
             this.init();
@@ -117,6 +114,20 @@ export default {
             this.calculateAutoSize();
         }
     },
+    created() {
+        // Only the reference and the length of `items` matter. The previous deep watcher traversed (and made reactive)
+        // every item on creation and on each change, which is very expensive for the large data sets this component is
+        // meant for. Tracking the length also covers in-place mutations (push/splice) of the same array.
+        this.$watch(
+            () => [this.items, this.items ? this.items.length : 0],
+            ([newItems, newLength], [oldItems, oldLength]) => {
+                if (!oldItems || oldLength !== (newItems ? newLength : 0)) {
+                    this.init();
+                    this.calculateAutoSize();
+                }
+            }
+        );
+    },
     mounted() {
         this.viewInit();
 
@@ -126,14 +137,42 @@ export default {
     updated() {
         !this.initialized && this.viewInit();
     },
+    activated() {
+        // KeepAlive also calls `activated` on the initial mount, only a real re-activation needs a re-sync
+        if (this.deactivated) {
+            this.deactivated = false;
+            this.onShow();
+        }
+    },
+    deactivated() {
+        this.deactivated = true;
+    },
     unmounted() {
         this.unbindResizeListener();
 
+        if (this.scrollTimeout) {
+            clearTimeout(this.scrollTimeout);
+            this.scrollTimeout = null;
+        }
+
+        if (this.resizeTimeout) {
+            clearTimeout(this.resizeTimeout);
+            this.resizeTimeout = null;
+        }
+
+        if (this.showFrame) {
+            this.showFrame.cancel();
+            this.showFrame = null;
+        }
+
         this.initialized = false;
+        this.cachedContentPos = null;
     },
     methods: {
         viewInit() {
-            if (isVisible(this.element)) {
+            if (this.isElementVisible()) {
+                this.hidden = false;
+                this.d_numToleratedItems = this.numToleratedItems;
                 this.setContentEl(this.content);
                 this.init();
                 this.calculateAutoSize();
@@ -151,10 +190,28 @@ export default {
         },
         init() {
             if (!this.disabled) {
+                this.cachedContentPos = null;
+
+                if (this.element && !this.isElementVisible()) {
+                    // The element is hidden (e.g. inside a display:none parent, an inactive tab or a collapsed panel).
+                    // Measuring now would yield 0 and lock the scroller to an empty viewport, so the measurement is
+                    // postponed until it becomes visible (see onElementResize, onShow and updated).
+                    this.initialized = false;
+                    this.hidden = true;
+                    this.setSpacerSize();
+
+                    return;
+                }
+
                 this.setSize();
                 this.calculateOptions();
                 this.setSpacerSize();
             }
+        },
+        isElementVisible() {
+            const el = this.element;
+
+            return !!el && (isVisible(el) || (typeof el.getClientRects === 'function' && el.getClientRects().length > 0));
         },
         isVertical() {
             return this.orientation === 'vertical';
@@ -329,7 +386,7 @@ export default {
         calculateAutoSize() {
             if (this.autoSize && !this.d_loading) {
                 Promise.resolve().then(() => {
-                    if (this.content) {
+                    if (this.content && this.isElementVisible()) {
                         const both = this.isBoth();
                         const horizontal = this.isHorizontal();
                         const vertical = this.isVertical();
@@ -345,8 +402,16 @@ export default {
 
                         const [width, height] = [getWidth(this.element), getHeight(this.element)];
 
-                        (both || horizontal) && (this.element.style.width = width < this.defaultWidth ? width + 'px' : this.scrollWidth || this.defaultWidth + 'px');
-                        (both || vertical) && (this.element.style.height = height < this.defaultHeight ? height + 'px' : this.scrollHeight || this.defaultHeight + 'px');
+                        // a 0 size (measured before the element was laid out) is never written, it would lock the element
+                        if (both || horizontal) {
+                            if (width < this.defaultWidth) this.element.style.width = width + 'px';
+                            else if (this.scrollWidth || this.defaultWidth) this.element.style.width = this.scrollWidth || this.defaultWidth + 'px';
+                        }
+
+                        if (both || vertical) {
+                            if (height < this.defaultHeight) this.element.style.height = height + 'px';
+                            else if (this.scrollHeight || this.defaultHeight) this.element.style.height = this.scrollHeight || this.defaultHeight + 'px';
+                        }
 
                         this.content.style.minHeight = this.content.style.minWidth = '';
                         this.content.style.position = '';
@@ -361,24 +426,30 @@ export default {
         getContentPosition() {
             if (this.content) {
                 const style = getComputedStyle(this.content);
-                const left = parseFloat(style.paddingLeft) + Math.max(parseFloat(style.left) || 0, 0);
-                const right = parseFloat(style.paddingRight) + Math.max(parseFloat(style.right) || 0, 0);
-                const top = parseFloat(style.paddingTop) + Math.max(parseFloat(style.top) || 0, 0);
-                const bottom = parseFloat(style.paddingBottom) + Math.max(parseFloat(style.bottom) || 0, 0);
+                const left = (parseFloat(style.paddingLeft) || 0) + Math.max(parseFloat(style.left) || 0, 0);
+                const right = (parseFloat(style.paddingRight) || 0) + Math.max(parseFloat(style.right) || 0, 0);
+                const top = (parseFloat(style.paddingTop) || 0) + Math.max(parseFloat(style.top) || 0, 0);
+                const bottom = (parseFloat(style.paddingBottom) || 0) + Math.max(parseFloat(style.bottom) || 0, 0);
 
                 return { left, right, top, bottom, x: left + right, y: top + bottom };
             }
 
             return { left: 0, right: 0, top: 0, bottom: 0, x: 0, y: 0 };
         },
+        getCachedContentPosition() {
+            return this.cachedContentPos || (this.cachedContentPos = this.getContentPosition());
+        },
         setSize() {
             if (this.element) {
                 const both = this.isBoth();
                 const horizontal = this.isHorizontal();
                 const parentElement = this.element.parentElement;
-                const width = this.scrollWidth || `${this.element.offsetWidth || parentElement.offsetWidth}px`;
-                const height = this.scrollHeight || `${this.element.offsetHeight || parentElement.offsetHeight}px`;
-                const setProp = (_name, _value) => (this.element.style[_name] = _value);
+                const offsetWidth = this.element.offsetWidth || parentElement?.offsetWidth;
+                const offsetHeight = this.element.offsetHeight || parentElement?.offsetHeight;
+                const width = this.scrollWidth || (offsetWidth ? `${offsetWidth}px` : null);
+                const height = this.scrollHeight || (offsetHeight ? `${offsetHeight}px` : null);
+                // a 0 size is never written, it would prevent the element from growing once it gets laid out
+                const setProp = (_name, _value) => _value && (this.element.style[_name] = _value);
 
                 if (both || horizontal) {
                     setProp('height', height);
@@ -426,7 +497,8 @@ export default {
             const target = event.target;
             const both = this.isBoth();
             const horizontal = this.isHorizontal();
-            const contentPos = this.getContentPosition();
+            // getComputedStyle is not free and the content offsets don't change while scrolling, so they are cached
+            const contentPos = this.getCachedContentPosition();
             const calculateScrollPos = (_pos, _cpos) => (_pos ? (_pos > _cpos ? _pos - _cpos : _pos) : 0);
             const calculateCurrentIndex = (_pos, _size) => Math.floor(_pos / (_size || _pos));
 
@@ -511,6 +583,9 @@ export default {
             if (isRangeChanged) {
                 const newState = { first, last };
 
+                // consume the flag set by scrollToIndex, otherwise every following scroll event would re-render
+                this.isRangeChanged = false;
+
                 this.setContentPosition(newState);
 
                 this.first = first;
@@ -566,13 +641,19 @@ export default {
             }
 
             this.resizeTimeout = setTimeout(() => {
-                if (isVisible(this.element)) {
+                this.resizeTimeout = null;
+
+                if (!this.initialized) {
+                    this.viewInit();
+                } else if (this.isElementVisible()) {
                     const both = this.isBoth();
                     const vertical = this.isVertical();
                     const horizontal = this.isHorizontal();
                     const [width, height] = [getWidth(this.element), getHeight(this.element)];
                     const [isDiffWidth, isDiffHeight] = [width !== this.defaultWidth, height !== this.defaultHeight];
                     const reinit = both ? isDiffWidth || isDiffHeight : horizontal ? isDiffWidth : vertical ? isDiffHeight : false;
+
+                    this.cachedContentPos = null;
 
                     if (reinit) {
                         this.d_numToleratedItems = this.numToleratedItems;
@@ -592,11 +673,81 @@ export default {
 
                 window.addEventListener('resize', this.resizeListener);
                 window.addEventListener('orientationchange', this.resizeListener);
+            }
 
-                this.resizeObserver = new ResizeObserver(() => {
-                    this.onResize();
+            if (!this.resizeObserver && this.element && typeof window !== 'undefined' && typeof window.ResizeObserver === 'function') {
+                this.resizeObserver = new window.ResizeObserver(() => {
+                    this.onElementResize();
                 });
                 this.resizeObserver.observe(this.element);
+            }
+        },
+        onElementResize() {
+            if (!this.element) return;
+
+            if (!this.isElementVisible()) {
+                // hidden by display:none on itself or an ancestor, or detached; re-sync once it is shown again
+                this.hidden = true;
+
+                return;
+            }
+
+            if (this.hidden || !this.initialized) {
+                this.scheduleShow();
+            } else {
+                this.onResize();
+            }
+        },
+        scheduleShow() {
+            // Deferred to the next frame: writing sizes from inside a ResizeObserver callback would raise
+            // "ResizeObserver loop completed with undelivered notifications" errors.
+            if (!this.showFrame) {
+                const run = () => {
+                    this.showFrame = null;
+                    this.onShow();
+                };
+
+                if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+                    const id = window.requestAnimationFrame(run);
+
+                    this.showFrame = { cancel: () => window.cancelAnimationFrame(id) };
+                } else {
+                    const id = setTimeout(run);
+
+                    this.showFrame = { cancel: () => clearTimeout(id) };
+                }
+            }
+        },
+        onShow() {
+            if (!this.isElementVisible()) {
+                this.element && (this.hidden = true);
+
+                return;
+            }
+
+            this.hidden = false;
+
+            if (!this.initialized) {
+                this.viewInit();
+            } else if (getWidth(this.element) !== this.defaultWidth || getHeight(this.element) !== this.defaultHeight) {
+                this.initialized = false;
+                this.viewInit();
+            } else {
+                this.cachedContentPos = null;
+            }
+
+            // Browsers reset the scroll offset of an element that was display:none or detached (keep-alive),
+            // so the rendered range has to follow the current scroll position.
+            this.initialized && this.syncRangeWithScrollPosition();
+        },
+        syncRangeWithScrollPosition() {
+            if (this.element && !this.d_loading) {
+                const { scrollTop = 0, scrollLeft = 0 } = this.element;
+                const both = this.isBoth();
+                const lastPos = this.lastScrollPos;
+                const changed = both ? !lastPos || lastPos.top !== scrollTop || lastPos.left !== scrollLeft : lastPos !== (this.isHorizontal() ? scrollLeft : scrollTop);
+
+                changed && this.onScrollChange({ target: this.element });
             }
         },
         unbindResizeListener() {
@@ -612,7 +763,7 @@ export default {
             }
         },
         getOptions(renderedIndex) {
-            const count = (this.items || []).length;
+            const count = this.items ? this.items.length : 0;
             const index = this.isBoth() ? this.first.rows + renderedIndex : this.first + renderedIndex;
 
             return {
