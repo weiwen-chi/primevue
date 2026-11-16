@@ -26261,6 +26261,14 @@
                             "description": "Defines current inline state."
                         },
                         {
+                            "name": "context",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "DialogContext",
+                            "default": "",
+                            "description": "Defines current options, only available for the resize handles."
+                        },
+                        {
                             "name": "parent",
                             "optional": false,
                             "readonly": false,
@@ -26379,6 +26387,14 @@
                             "description": "Used to pass attributes to the mask's DOM element."
                         },
                         {
+                            "name": "resizeHandle",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "DialogPassThroughOptionType<T>",
+                            "default": "",
+                            "description": "Used to pass attributes to the resize handle DOM elements. The handle direction is available as  `context.direction` ."
+                        },
+                        {
                             "name": "hooks",
                             "optional": true,
                             "readonly": false,
@@ -26423,12 +26439,89 @@
                             "description": "Current visible state of the container as a boolean."
                         },
                         {
-                            "name": "maximized",
+                            "name": "d_maximized",
                             "optional": false,
                             "readonly": false,
                             "type": "boolean",
                             "default": "false",
                             "description": "Current maximized state as a boolean."
+                        },
+                        {
+                            "name": "rendered",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "boolean",
+                            "default": "false",
+                            "description": "Whether the dialog has been displayed at least once, used to keep the content alive when  `destroyOnClose`  is false."
+                        }
+                    ],
+                    "methods": []
+                },
+                "DialogContext": {
+                    "description": "Defines current options in Dialog component.",
+                    "relatedProp": "",
+                    "props": [
+                        {
+                            "name": "direction",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "\"e\" | \"s\" | \"se\"",
+                            "default": "",
+                            "description": "Direction of the resize handle,  `e`  (right edge),  `s`  (bottom edge) or  `se`  (bottom right corner)."
+                        }
+                    ],
+                    "methods": []
+                },
+                "DialogBeforeCloseEvent": {
+                    "description": "Parameter of the  `beforeClose`  callback.",
+                    "relatedProp": "",
+                    "props": [
+                        {
+                            "name": "originalEvent",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "undefined | Event",
+                            "default": "",
+                            "description": "Browser event that triggered the close request, if any."
+                        },
+                        {
+                            "name": "source",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "DialogCloseSource",
+                            "default": "",
+                            "description": "What triggered the close request."
+                        }
+                    ],
+                    "methods": []
+                },
+                "DialogResizeEvent": {
+                    "description": "Custom resize event.",
+                    "relatedProp": "undefined. - ",
+                    "props": [
+                        {
+                            "name": "originalEvent",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "undefined | Event",
+                            "default": "",
+                            "description": "Browser event."
+                        },
+                        {
+                            "name": "width",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "number",
+                            "default": "",
+                            "description": "Width of the dialog in pixels."
+                        },
+                        {
+                            "name": "height",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "number",
+                            "default": "",
+                            "description": "Height of the dialog in pixels."
                         }
                     ],
                     "methods": []
@@ -26577,6 +26670,62 @@
                             "type": "boolean",
                             "default": "false",
                             "description": "Whether the dialog can be displayed full screen."
+                        },
+                        {
+                            "name": "maximized",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "boolean",
+                            "default": "false",
+                            "description": "Maximized (full screen) state of the dialog, supports two-way binding with  `v-model:maximized` .\nCan also be used without  `maximizable`  to display a full screen dialog without a maximize button."
+                        },
+                        {
+                            "name": "resizable",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "boolean",
+                            "default": "false",
+                            "description": "Enables resizing the dialog with the handles at the right edge, bottom edge and bottom right corner. Not available while maximized."
+                        },
+                        {
+                            "name": "minWidth",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "number",
+                            "default": "150",
+                            "description": "Minimum width in pixels when resizing."
+                        },
+                        {
+                            "name": "minHeight",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "number",
+                            "default": "100",
+                            "description": "Minimum height in pixels when resizing."
+                        },
+                        {
+                            "name": "beforeClose",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "DialogBeforeCloseHandler",
+                            "default": "",
+                            "description": "Guard invoked before the dialog is closed by the user with the close button, the escape key or a mask click.\nReturning  `false` , or a promise resolving to  `false`  (or rejecting), cancels closing. Any other value closes the dialog.\nReceives a DialogBeforeCloseEvent with the  `originalEvent`  and the  `source`  of the request ( `close` ,  `escape`  or  `mask` ). Not invoked when  `visible`  is changed by the parent."
+                        },
+                        {
+                            "name": "destroyOnClose",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "boolean",
+                            "default": "true",
+                            "description": "Whether the content is destroyed when the dialog is hidden. When false, the content is kept alive (hidden) after the first display, preserving its state.\nContent is never rendered before the dialog is displayed for the first time."
+                        },
+                        {
+                            "name": "restoreFocus",
+                            "optional": true,
+                            "readonly": false,
+                            "type": "boolean",
+                            "default": "true",
+                            "description": "Whether focus returns to the element that was focused before the dialog was displayed when the dialog hides."
                         },
                         {
                             "name": "breakpoints",
@@ -26886,6 +27035,58 @@
                             ],
                             "returnType": "void",
                             "description": "Fired when a dialog drag completes."
+                        },
+                        {
+                            "name": "update:maximized",
+                            "parameters": [
+                                {
+                                    "name": "value",
+                                    "optional": false,
+                                    "type": "boolean",
+                                    "description": "New value."
+                                }
+                            ],
+                            "returnType": "void",
+                            "description": "Emitted when the maximized state is changed by the user."
+                        },
+                        {
+                            "name": "resizestart",
+                            "parameters": [
+                                {
+                                    "name": "event",
+                                    "optional": false,
+                                    "type": "DialogResizeEvent",
+                                    "description": "Custom resize event."
+                                }
+                            ],
+                            "returnType": "void",
+                            "description": "Fired when a dialog resize begins."
+                        },
+                        {
+                            "name": "resize",
+                            "parameters": [
+                                {
+                                    "name": "event",
+                                    "optional": false,
+                                    "type": "DialogResizeEvent",
+                                    "description": "Custom resize event."
+                                }
+                            ],
+                            "returnType": "void",
+                            "description": "Fired while a dialog is being resized."
+                        },
+                        {
+                            "name": "resizeend",
+                            "parameters": [
+                                {
+                                    "name": "event",
+                                    "optional": false,
+                                    "type": "DialogResizeEvent",
+                                    "description": "Custom resize event."
+                                }
+                            ],
+                            "returnType": "void",
+                            "description": "Fired when a dialog resize completes."
                         }
                     ]
                 }
@@ -26914,6 +27115,18 @@
                     "description": "Defines current inline state in Dialog component.",
                     "props": []
                 },
+                "DialogContext": {
+                    "description": "Defines current options in Dialog component.",
+                    "props": []
+                },
+                "DialogBeforeCloseEvent": {
+                    "description": "Parameter of the  `beforeClose`  callback.",
+                    "props": []
+                },
+                "DialogResizeEvent": {
+                    "description": "Custom resize event.",
+                    "props": []
+                },
                 "DialogBreakpoints": {
                     "description": "Custom breakpoint metadata.",
                     "props": []
@@ -26940,6 +27153,13 @@
                 },
                 "DialogPassThroughTransitionType": {
                     "values": "TransitionProps | (options: DialogPassThroughMethodOptions) => TransitionProps | undefined"
+                },
+                "DialogCloseSource": {
+                    "values": "\"close\" | \"escape\" | \"mask\"",
+                    "description": "Source of a close request.\n-  `close` : the close button or the  `closeCallback`  of a template\n-  `escape` : the escape key\n-  `mask` : a click on the modal mask when  `dismissableMask`  is enabled"
+                },
+                "DialogBeforeCloseHandler": {
+                    "values": "{}"
                 },
                 "DialogEmits": {
                     "values": "EmitFn<DialogEmitsOptions>"
@@ -27037,6 +27257,13 @@
                             "readonly": false,
                             "value": "\"p-dialog-footer\"",
                             "description": "Class name of the footer element"
+                        },
+                        {
+                            "name": "resizeHandle",
+                            "optional": false,
+                            "readonly": false,
+                            "value": "\"p-dialog-resize-handle\"",
+                            "description": "Class name of the resize handle elements"
                         }
                     ]
                 }

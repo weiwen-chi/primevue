@@ -5,11 +5,15 @@
 <script>
 import AccessibilityDoc from '@/doc/dialog/AccessibilityDoc.vue';
 import BasicDoc from '@/doc/dialog/BasicDoc.vue';
+import CloseGuardDoc from '@/doc/dialog/CloseGuardDoc.vue';
+import FullscreenDoc from '@/doc/dialog/FullscreenDoc.vue';
 import HeadlessDoc from '@/doc/dialog/HeadlessDoc.vue';
 import ImportDoc from '@/doc/dialog/ImportDoc.vue';
+import KeepAliveDoc from '@/doc/dialog/KeepAliveDoc.vue';
 import LongContentDoc from '@/doc/dialog/LongContentDoc.vue';
 import MaximizableDoc from '@/doc/dialog/MaximizableDoc.vue';
 import PositionDoc from '@/doc/dialog/PositionDoc.vue';
+import ResizableDoc from '@/doc/dialog/ResizableDoc.vue';
 import ResponsiveDoc from '@/doc/dialog/ResponsiveDoc.vue';
 import TemplateDoc from '@/doc/dialog/TemplateDoc.vue';
 import WithoutModalDoc from '@/doc/dialog/WithoutModalDoc.vue';
@@ -44,6 +48,26 @@ export default {
                     id: 'maximizable',
                     label: 'Maximizable',
                     component: MaximizableDoc
+                },
+                {
+                    id: 'fullscreen',
+                    label: 'Full Screen',
+                    component: FullscreenDoc
+                },
+                {
+                    id: 'resizable',
+                    label: 'Resizable',
+                    component: ResizableDoc
+                },
+                {
+                    id: 'closeguard',
+                    label: 'Close Guard',
+                    component: CloseGuardDoc
+                },
+                {
+                    id: 'keepalive',
+                    label: 'Keep Alive',
+                    component: KeepAliveDoc
                 },
                 {
                     id: 'longcontent',
