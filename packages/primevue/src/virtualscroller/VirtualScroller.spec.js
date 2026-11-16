@@ -285,6 +285,62 @@ describe('VirtualScroller.vue', () => {
         wrapper.unmount();
     });
 
+    it('only renders the entering rows of a virtual scrolling DataTable when the range shifts', async () => {
+        let bodyRenders = [];
+        const rows = Array.from({ length: 1000 }, (_, i) => ({ id: i, name: `Row ${i}` }));
+        const wrapper = mount(DataTable, {
+            attachTo: document.body,
+            props: { value: rows, scrollable: true, scrollHeight: `${VIEWPORT}px`, virtualScrollerOptions: { itemSize: ITEM_SIZE } },
+            slots: {
+                default: () =>
+                    h(
+                        Column,
+                        { field: 'name', header: 'Name' },
+                        {
+                            body: ({ data, index }) => {
+                                bodyRenders.push(index);
+
+                                return h('span', { class: 'cell', 'data-index': index }, data.name);
+                            }
+                        }
+                    )
+            }
+        });
+
+        await nextTick();
+        await nextTick();
+
+        const scroller = wrapper.find('.p-virtualscroller');
+        const renderedRows = () => wrapper.findAll('tbody tr').map((tr) => Number(tr.attributes('data-p-index')));
+
+        scroller.element.scrollTop = 5 * ITEM_SIZE;
+        await scroller.trigger('scroll');
+        await nextTick();
+
+        const previous = renderedRows();
+
+        // shift the rendered range by a few rows
+        bodyRenders = [];
+        scroller.element.scrollTop = 9 * ITEM_SIZE;
+        await scroller.trigger('scroll');
+        await nextTick();
+
+        const indexes = renderedRows();
+        const before = indexes.length;
+
+        expect(indexes).toContain(9);
+        expect(indexes[0]).toBeGreaterThan(previous[0]);
+        // absolute indexes, contiguous and in order
+        expect(indexes).toEqual(Array.from({ length: before }, (_, i) => indexes[0] + i));
+        expect(wrapper.findAll('.cell').map((c) => Number(c.attributes('data-index')))).toEqual(indexes);
+        expect(wrapper.findAll('.cell').map((c) => c.text())).toEqual(indexes.map((i) => `Row ${i}`));
+        // only the rows that entered the range were rendered, the ones that stayed were not rendered again
+        expect(bodyRenders.sort((x, y) => x - y)).toEqual(indexes.filter((i) => !previous.includes(i)));
+        expect(bodyRenders.length).toBeLessThan(before);
+
+        wrapper.unmount();
+    });
+
     it('restores the scroll position when shown again after the offset was reset while hidden', async () => {
         const parent = document.createElement('div');
 
