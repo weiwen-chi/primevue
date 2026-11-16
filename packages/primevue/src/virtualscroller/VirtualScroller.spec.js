@@ -285,7 +285,7 @@ describe('VirtualScroller.vue', () => {
         wrapper.unmount();
     });
 
-    it('re-syncs the rendered range when shown again with a reset scroll position', async () => {
+    it('restores the scroll position when shown again after the offset was reset while hidden', async () => {
         const parent = document.createElement('div');
 
         document.body.appendChild(parent);
@@ -300,7 +300,7 @@ describe('VirtualScroller.vue', () => {
         await scroller.trigger('scroll');
         expect(renderedIndexes(wrapper)).toContain(600);
 
-        // hide: browsers drop the scroll offset of display:none elements without firing a scroll event
+        // hide: depending on the browser, display:none drops the scroll offset without firing a scroll event
         parent.setAttribute('data-hidden', '');
         triggerResize();
         scroller.element.scrollTop = 0;
@@ -310,12 +310,13 @@ describe('VirtualScroller.vue', () => {
         await nextFrame();
         await nextTick();
 
-        expect(renderedIndexes(wrapper)[0]).toBe(0);
+        expect(scroller.element.scrollTop).toBe(600 * ITEM_SIZE);
+        expect(renderedIndexes(wrapper)).toContain(600);
 
         wrapper.unmount();
     });
 
-    it('re-syncs when re-activated inside keep-alive', async () => {
+    it('restores the scroll position when re-activated inside keep-alive', async () => {
         const show = ref(true);
         const Other = defineComponent({ render: () => h('div', 'other') });
         const Host = defineComponent({
@@ -340,7 +341,70 @@ describe('VirtualScroller.vue', () => {
         await nextTick();
         await nextTick();
 
-        expect(renderedIndexes(wrapper)[0]).toBe(0);
+        expect(el.scrollTop).toBe(400 * ITEM_SIZE);
+        expect(renderedIndexes(wrapper)).toContain(400);
+        expect(renderedIndexes(wrapper)).toContain(400 + VIEWPORT / ITEM_SIZE - 1);
+
+        wrapper.unmount();
+    });
+
+    it('clamps the restored scroll position when items were removed while hidden', async () => {
+        const parent = document.createElement('div');
+
+        document.body.appendChild(parent);
+
+        const wrapper = mountScroller({}, { attachTo: parent });
+
+        await nextTick();
+
+        const scroller = wrapper.find('.p-virtualscroller');
+
+        scroller.element.scrollTop = 900 * ITEM_SIZE;
+        await scroller.trigger('scroll');
+
+        parent.setAttribute('data-hidden', '');
+        triggerResize();
+        scroller.element.scrollTop = 0;
+        await wrapper.setProps({ items: createItems(100) });
+
+        parent.removeAttribute('data-hidden');
+        triggerResize();
+        await nextFrame();
+        await nextTick();
+
+        const indexes = renderedIndexes(wrapper);
+
+        expect(scroller.element.scrollTop).toBeLessThanOrEqual(100 * ITEM_SIZE);
+        expect(scroller.element.scrollTop).toBeGreaterThan(0);
+        expect(indexes).toContain(99);
+        expect(indexes.every((i) => i < 100)).toBe(true);
+
+        wrapper.unmount();
+    });
+
+    it('does not move the scroll position when it was kept while hidden', async () => {
+        const parent = document.createElement('div');
+
+        document.body.appendChild(parent);
+
+        const wrapper = mountScroller({}, { attachTo: parent });
+
+        await nextTick();
+
+        const scroller = wrapper.find('.p-virtualscroller');
+
+        scroller.element.scrollTop = 300 * ITEM_SIZE;
+        await scroller.trigger('scroll');
+
+        parent.setAttribute('data-hidden', '');
+        triggerResize();
+        parent.removeAttribute('data-hidden');
+        triggerResize();
+        await nextFrame();
+        await nextTick();
+
+        expect(scroller.element.scrollTop).toBe(300 * ITEM_SIZE);
+        expect(renderedIndexes(wrapper)).toContain(300);
 
         wrapper.unmount();
     });

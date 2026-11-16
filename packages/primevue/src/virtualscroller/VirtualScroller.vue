@@ -87,6 +87,8 @@ export default {
     hidden: false,
     deactivated: false,
     showFrame: null,
+    // last scroll offset set by the user/app while visible, restored when the element is shown again
+    savedScrollPos: null,
     // cached content offsets, read on every scroll event; invalidated on (re)initialisation and resize
     cachedContentPos: null,
     watch: {
@@ -609,6 +611,10 @@ export default {
         onScroll(event) {
             this.$emit('scroll', event);
 
+            if (!this.hidden && event.target) {
+                this.savedScrollPos = { top: event.target.scrollTop, left: event.target.scrollLeft };
+            }
+
             if (this.delay) {
                 if (this.scrollTimeout) {
                     clearTimeout(this.scrollTimeout);
@@ -736,9 +742,33 @@ export default {
                 this.cachedContentPos = null;
             }
 
-            // Browsers reset the scroll offset of an element that was display:none or detached (keep-alive),
-            // so the rendered range has to follow the current scroll position.
-            this.initialized && this.syncRangeWithScrollPosition();
+            if (this.initialized) {
+                // Detaching (keep-alive) and, depending on the browser, display:none reset the scroll offset of the
+                // element without firing a scroll event: restore the last known position, then make the rendered
+                // range follow the actual scroll position.
+                this.restoreScrollPosition();
+                this.syncRangeWithScrollPosition();
+            }
+        },
+        restoreScrollPosition() {
+            const el = this.element;
+            const saved = this.savedScrollPos;
+
+            if (!el || !saved || (el.scrollTop === saved.top && el.scrollLeft === saved.left)) return;
+
+            const both = this.isBoth();
+            const horizontal = this.isHorizontal();
+            const contentPos = this.getCachedContentPosition();
+            const rows = this.items ? this.items.length : 0;
+            const cols = both ? (this.columns || (this.items && this.items[0]) || []).length : (this.columns || this.items || []).length;
+            // upper bounds derived from the current items, in case they changed while hidden (the browser clamps further)
+            const maxTop = both ? rows * this.itemSize[0] + contentPos.y : rows * this.itemSize + contentPos.y;
+            const maxLeft = both ? cols * this.itemSize[1] + contentPos.x : cols * this.itemSize + contentPos.x;
+            const clamp = (value, max) => Math.max(0, Math.min(value, max));
+
+            // only the virtualized axis is clamped, the other one (e.g. a wide DataTable) is clamped by the browser
+            el.scrollTop = both || !horizontal ? clamp(saved.top, maxTop) : saved.top;
+            el.scrollLeft = both || horizontal ? clamp(saved.left, maxLeft) : saved.left;
         },
         syncRangeWithScrollPosition() {
             if (this.element && !this.d_loading) {
