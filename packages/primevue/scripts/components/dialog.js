@@ -96,6 +96,48 @@ const DialogProps = [
         description: 'Whether the dialog can be displayed full screen.'
     },
     {
+        name: 'maximized',
+        type: 'boolean',
+        default: 'false',
+        description: 'Maximized state of the dialog, supports two-way binding with v-model:maximized.'
+    },
+    {
+        name: 'resizable',
+        type: 'boolean',
+        default: 'false',
+        description: 'Enables resizing the dialog with the handles at the right edge, bottom edge and bottom right corner.'
+    },
+    {
+        name: 'minWidth',
+        type: 'number',
+        default: '150',
+        description: 'Minimum width in pixels when resizing.'
+    },
+    {
+        name: 'minHeight',
+        type: 'number',
+        default: '100',
+        description: 'Minimum height in pixels when resizing.'
+    },
+    {
+        name: 'beforeClose',
+        type: 'function',
+        default: 'null',
+        description: 'Guard invoked before the dialog is closed by the user, returning false or a promise resolving to false cancels closing.'
+    },
+    {
+        name: 'destroyOnClose',
+        type: 'boolean',
+        default: 'true',
+        description: 'Whether the content is destroyed when the dialog is hidden, when false the content is kept alive after the first display.'
+    },
+    {
+        name: 'restoreFocus',
+        type: 'boolean',
+        default: 'true',
+        description: 'Whether focus returns to the previously focused element when the dialog hides.'
+    },
+    {
         name: 'breakpoints',
         type: 'object',
         default: 'null',
@@ -199,6 +241,50 @@ const DialogEvents = [
                 name: 'event',
                 type: 'object',
                 description: 'Event Object'
+            }
+        ]
+    },
+    {
+        name: 'update:maximized',
+        description: 'Emitted when the maximized state is changed by the user.',
+        arguments: [
+            {
+                name: 'value',
+                type: 'boolean',
+                description: 'New value'
+            }
+        ]
+    },
+    {
+        name: 'resizestart',
+        description: 'Fired when a dialog resize begins.',
+        arguments: [
+            {
+                name: 'event',
+                type: 'object',
+                description: 'Resize event with originalEvent, width and height'
+            }
+        ]
+    },
+    {
+        name: 'resize',
+        description: 'Fired while a dialog is being resized.',
+        arguments: [
+            {
+                name: 'event',
+                type: 'object',
+                description: 'Resize event with originalEvent, width and height'
+            }
+        ]
+    },
+    {
+        name: 'resizeend',
+        description: 'Fired when a dialog resize completes.',
+        arguments: [
+            {
+                name: 'event',
+                type: 'object',
+                description: 'Resize event with originalEvent, width and height'
             }
         ]
     }

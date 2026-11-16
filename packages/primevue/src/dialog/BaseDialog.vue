@@ -126,6 +126,34 @@ export default {
                 };
             }
         },
+        maximized: {
+            type: Boolean,
+            default: false
+        },
+        resizable: {
+            type: Boolean,
+            default: false
+        },
+        minWidth: {
+            type: Number,
+            default: 150
+        },
+        minHeight: {
+            type: Number,
+            default: 100
+        },
+        beforeClose: {
+            type: Function,
+            default: null
+        },
+        destroyOnClose: {
+            type: Boolean,
+            default: true
+        },
+        restoreFocus: {
+            type: Boolean,
+            default: true
+        },
         _instance: null
     },
     style: DialogStyle,

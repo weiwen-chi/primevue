@@ -45,7 +45,11 @@ export enum DialogClasses {
     /**
      * Class name of the footer element
      */
-    footer = 'p-dialog-footer'
+    footer = 'p-dialog-footer',
+    /**
+     * Class name of the resize handle elements
+     */
+    resizeHandle = 'p-dialog-resize-handle'
 }
 
 export interface DialogStyle extends BaseStyle {}
