@@ -226,5 +226,37 @@ describe('Tooltip directive positioning', () => {
 
             expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
         });
+
+        it('hides when the host is scrolled out of a scrollable ancestor that is still inside the window', async () => {
+            const Comp = defineComponent({
+                render() {
+                    return h('div', { class: 'scroller', style: 'overflow: auto; height: 100px' }, [withDirectives(h('button', { class: 'host' }, 'host'), [[Tooltip, 'Tooltip text', '', { top: true }]])]);
+                }
+            });
+
+            wrapper = mount(Comp, { attachTo: document.body });
+
+            const scroller = wrapper.element;
+            const host = wrapper.find('.host').element;
+
+            scroller.getBoundingClientRect = () => rect(0, 200, 500, 100);
+            host.getBoundingClientRect = () => rect(400, 250, 100, 30);
+
+            const tooltip = await show(host);
+
+            expect(tooltip).not.toBeNull();
+
+            // still visible inside the scroller: follows the host
+            host.getBoundingClientRect = () => rect(400, 270, 100, 30);
+            host.$_ptooltipScrollHandler.listener();
+
+            expect(pos(tooltip).top).toBe(270 - TOOLTIP_SIZE.height);
+
+            // scrolled out of the scroller (above its box) but inside the window
+            host.getBoundingClientRect = () => rect(400, 150, 100, 30);
+            host.$_ptooltipScrollHandler.listener();
+
+            expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+        });
     });
 });

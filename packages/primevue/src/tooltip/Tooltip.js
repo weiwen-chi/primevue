@@ -1,4 +1,4 @@
-import { addClass, createElement, fadeIn, findSingle, getAttribute, getOuterHeight, getOuterWidth, getViewport, getWindowScrollLeft, getWindowScrollTop, hasClass, isExist, removeClass } from '@primeuix/utils/dom';
+import { addClass, createElement, fadeIn, findSingle, getAttribute, getOuterHeight, getOuterWidth, getScrollableParents, getViewport, getWindowScrollLeft, getWindowScrollTop, hasClass, isExist, removeClass } from '@primeuix/utils/dom';
 import { isEmpty } from '@primeuix/utils/object';
 import { uuid } from '@primeuix/utils/uuid';
 import { ZIndex } from '@primeuix/utils/zindex';
@@ -221,15 +221,21 @@ const Tooltip = BaseTooltip.extend('tooltip', {
         onScroll(el) {
             if (!this.getTooltipElement(el)) return;
 
-            // hide when the host was scrolled out of the viewport, otherwise follow it
-            const rect = el.getBoundingClientRect();
-            const { width, height } = getViewport();
-
-            if (rect.bottom < 0 || rect.top > height || rect.right < 0 || rect.left > width) {
+            // hide when the host was scrolled out of the viewport or out of any scrollable ancestor, otherwise follow it
+            if (this.isHostHidden(el)) {
                 this.hide(el);
             } else {
                 this.align(el);
             }
+        },
+        isHostHidden(el) {
+            const rect = el.getBoundingClientRect();
+            const { width, height } = getViewport();
+            const outside = (box) => rect.bottom < box.top || rect.top > box.bottom || rect.right < box.left || rect.left > box.right;
+
+            if (outside({ top: 0, left: 0, bottom: height, right: width })) return true;
+
+            return getScrollableParents(el).some((parent) => parent instanceof Element && parent !== document.body && parent !== document.documentElement && outside(parent.getBoundingClientRect()));
         },
         onWindowResize(el) {
             if (this.getTooltipElement(el)) {
