@@ -421,7 +421,43 @@ describe('restoreFocus', () => {
 });
 
 describe('resizable', () => {
-    const pointer = (type, x, y) => document.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }));
+    let frames;
+
+    const flushFrames = () => {
+        const callbacks = [...frames.values()];
+
+        frames.clear();
+        callbacks.forEach((callback) => callback());
+    };
+
+    // pointer moves are applied on the next animation frame, flush it right away unless asked otherwise
+    const pointer = async (type, x, y, flush = true) => {
+        document.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }));
+        flush && type === 'pointermove' && flushFrames();
+        await nextTick();
+    };
+
+    beforeEach(() => {
+        let id = 0;
+
+        frames = new Map();
+        vi.stubGlobal(
+            'requestAnimationFrame',
+            vi.fn((callback) => {
+                frames.set(++id, callback);
+
+                return id;
+            })
+        );
+        vi.stubGlobal(
+            'cancelAnimationFrame',
+            vi.fn((frameId) => frames.delete(frameId))
+        );
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
 
     const mockRect = (wrapper, rect = { left: 100, top: 100, width: 400, height: 300 }) => {
         wrapper.find('.p-dialog').element.getBoundingClientRect = () => ({ ...rect, right: rect.left + rect.width, bottom: rect.top + rect.height, x: rect.left, y: rect.top });
@@ -454,7 +490,7 @@ describe('resizable', () => {
 
         expect(wrapper.emitted('resizestart')[0][0]).toMatchObject({ width: 400, height: 300 });
 
-        pointer('pointermove', 550, 450);
+        await pointer('pointermove', 550, 450);
 
         const element = wrapper.find('.p-dialog').element;
 
@@ -463,12 +499,12 @@ describe('resizable', () => {
         expect(element.style.position).toBe('fixed');
         expect(wrapper.emitted('resize')[0][0]).toMatchObject({ width: 450, height: 350 });
 
-        pointer('pointerup', 550, 450);
+        await pointer('pointerup', 550, 450);
 
         expect(wrapper.emitted('resizeend')[0][0]).toMatchObject({ width: 450, height: 350 });
 
         // listeners are removed after resize end
-        pointer('pointermove', 700, 600);
+        await pointer('pointermove', 700, 600);
         expect(element.style.width).toBe('450px');
 
         wrapper.unmount();
@@ -480,14 +516,14 @@ describe('resizable', () => {
         mockRect(wrapper);
 
         await wrapper.find('.p-dialog-resize-handle-e').trigger('pointerdown', { clientX: 500, clientY: 200, button: 0 });
-        pointer('pointermove', 560, 260);
+        await pointer('pointermove', 560, 260);
 
         const element = wrapper.find('.p-dialog').element;
 
         expect(element.style.width).toBe('460px');
         expect(element.style.height).toBe('300px');
 
-        pointer('pointerup', 560, 260);
+        await pointer('pointerup', 560, 260);
         wrapper.unmount();
     });
 
@@ -500,26 +536,196 @@ describe('resizable', () => {
 
         const element = wrapper.find('.p-dialog').element;
 
-        pointer('pointermove', 0, 0);
+        await pointer('pointermove', 0, 0);
         expect(element.style.width).toBe('200px');
         expect(element.style.height).toBe('150px');
 
-        pointer('pointermove', 5000, 5000);
+        await pointer('pointermove', 5000, 5000);
         expect(element.style.width).toBe(`${window.innerWidth - 100}px`);
         expect(element.style.height).toBe(`${window.innerHeight - 100}px`);
 
-        pointer('pointerup', 5000, 5000);
+        await pointer('pointerup', 5000, 5000);
         wrapper.unmount();
     });
 
     it('should hide resize handles while maximized', async () => {
-        const wrapper = await mountDialog({ visible: true, resizable: true, maximizable: true });
+        const wrapper = await mountDialog({ visible: true, resizable: true, maximizable: true, appendTo: 'self' });
 
         expect(wrapper.find('.p-dialog-resize-handle').exists()).toBe(true);
 
         await wrapper.find('.p-dialog-maximize-button').trigger('click');
 
         expect(wrapper.find('.p-dialog-resize-handle').exists()).toBe(false);
+
+        wrapper.unmount();
+    });
+
+    it('should write styles and emit resize at most once per frame', async () => {
+        const wrapper = await mountDialog({ visible: true, resizable: true });
+
+        mockRect(wrapper);
+
+        await wrapper.find('.p-dialog-resize-handle-se').trigger('pointerdown', { clientX: 500, clientY: 400, button: 0 });
+
+        const element = wrapper.find('.p-dialog').element;
+
+        await pointer('pointermove', 510, 410, false);
+        await pointer('pointermove', 520, 420, false);
+        await pointer('pointermove', 530, 430, false);
+
+        expect(wrapper.emitted('resize')).toBeUndefined();
+        expect(element.style.width).toBe('400px');
+
+        flushFrames();
+        await nextTick();
+
+        expect(wrapper.emitted('resize')).toHaveLength(1);
+        expect(wrapper.emitted('resize')[0][0]).toMatchObject({ width: 430, height: 330 });
+        expect(element.style.width).toBe('430px');
+
+        await pointer('pointerup', 530, 430);
+        wrapper.unmount();
+    });
+
+    it('should report the final size on resizeend when a frame is pending', async () => {
+        const wrapper = await mountDialog({ visible: true, resizable: true });
+
+        mockRect(wrapper);
+
+        await wrapper.find('.p-dialog-resize-handle-se').trigger('pointerdown', { clientX: 500, clientY: 400, button: 0 });
+        await pointer('pointermove', 580, 470, false);
+        await pointer('pointerup', 580, 470);
+
+        expect(window.cancelAnimationFrame).toHaveBeenCalled();
+        expect(wrapper.emitted('resize')).toHaveLength(1);
+
+        // the cancelled frame does not resize again
+        flushFrames();
+        expect(wrapper.emitted('resize')).toHaveLength(1);
+        expect(wrapper.emitted('resizeend')[0][0]).toMatchObject({ width: 480, height: 370 });
+        expect(wrapper.find('.p-dialog').element.style.width).toBe('480px');
+
+        wrapper.unmount();
+    });
+
+    it('should cancel a pending frame on unmount', async () => {
+        const wrapper = await mountDialog({ visible: true, resizable: true });
+
+        mockRect(wrapper);
+
+        await wrapper.find('.p-dialog-resize-handle-se').trigger('pointerdown', { clientX: 500, clientY: 400, button: 0 });
+        await pointer('pointermove', 580, 470, false);
+
+        expect(frames.size).toBeGreaterThan(0);
+
+        wrapper.unmount();
+
+        expect(window.cancelAnimationFrame).toHaveBeenCalled();
+
+        flushFrames();
+        expect(wrapper.emitted('resize')).toBeUndefined();
+    });
+
+    it('should set important inline sizes so that they win over breakpoints', async () => {
+        const wrapper = await mountDialog({ visible: true, resizable: true, breakpoints: { '960px': '75vw' } });
+
+        mockRect(wrapper);
+
+        await wrapper.find('.p-dialog-resize-handle-se').trigger('pointerdown', { clientX: 500, clientY: 400, button: 0 });
+        await pointer('pointermove', 550, 450);
+        await pointer('pointerup', 550, 450);
+
+        const style = wrapper.find('.p-dialog').element.style;
+
+        expect(style.getPropertyValue('width')).toBe('450px');
+        expect(style.getPropertyPriority('width')).toBe('important');
+        expect(style.getPropertyPriority('height')).toBe('important');
+        expect(style.getPropertyValue('max-width')).toBe('none');
+        expect(style.getPropertyPriority('max-width')).toBe('important');
+        expect(style.getPropertyPriority('max-height')).toBe('important');
+
+        wrapper.unmount();
+    });
+
+    it('should remove the resized size while maximized and restore it afterwards', async () => {
+        const wrapper = await mountDialog({ visible: true, resizable: true, maximizable: true, appendTo: 'self' });
+
+        mockRect(wrapper);
+
+        await wrapper.find('.p-dialog-resize-handle-se').trigger('pointerdown', { clientX: 500, clientY: 400, button: 0 });
+        await pointer('pointermove', 550, 450);
+        await pointer('pointerup', 550, 450);
+
+        const style = wrapper.find('.p-dialog').element.style;
+
+        await wrapper.find('.p-dialog-maximize-button').trigger('click');
+
+        expect(wrapper.find('.p-dialog').classes()).toContain('p-dialog-maximized');
+        expect(style.getPropertyValue('width')).toBe('');
+        expect(style.getPropertyValue('height')).toBe('');
+        expect(style.getPropertyValue('max-height')).toBe('');
+
+        await wrapper.find('.p-dialog-maximize-button').trigger('click');
+
+        expect(style.getPropertyValue('width')).toBe('450px');
+        expect(style.getPropertyValue('height')).toBe('350px');
+        expect(style.getPropertyPriority('width')).toBe('important');
+
+        // also when the maximized state is controlled from outside
+        await wrapper.setProps({ maximized: true });
+        expect(style.getPropertyValue('width')).toBe('');
+
+        await wrapper.setProps({ maximized: false });
+        expect(style.getPropertyValue('width')).toBe('450px');
+
+        wrapper.unmount();
+    });
+
+    it('should keep the resized size when the dialog re-renders with a user style', async () => {
+        const wrapper = await mountDialog({ visible: true, resizable: true, appendTo: 'self' }, { attrs: { style: { width: '30rem' } } });
+
+        mockRect(wrapper);
+
+        await wrapper.find('.p-dialog-resize-handle-se').trigger('pointerdown', { clientX: 500, clientY: 400, button: 0 });
+        await pointer('pointermove', 550, 450);
+        await pointer('pointerup', 550, 450);
+
+        await wrapper.setProps({ header: 'Changed' });
+
+        const style = wrapper.find('.p-dialog').element.style;
+
+        expect(wrapper.find('.p-dialog-title').text()).toBe('Changed');
+        expect(style.getPropertyValue('width')).toBe('450px');
+        expect(style.getPropertyPriority('width')).toBe('important');
+
+        wrapper.unmount();
+    });
+
+    it('should reset the resized size when the content is destroyed on close', async () => {
+        const wrapper = await mountDialog({ visible: true, resizable: true, appendTo: 'self' });
+
+        mockRect(wrapper);
+
+        await wrapper.find('.p-dialog-resize-handle-se').trigger('pointerdown', { clientX: 500, clientY: 400, button: 0 });
+        await pointer('pointermove', 550, 450);
+        await pointer('pointerup', 550, 450);
+
+        wrapper.vm.onAfterLeave();
+        await wrapper.setProps({ visible: false });
+        await wrapper.setProps({ visible: true });
+
+        expect(wrapper.find('.p-dialog').element.style.getPropertyValue('width')).toBe('');
+
+        wrapper.unmount();
+    });
+});
+
+describe('breakpoints', () => {
+    it('should not apply breakpoint widths while maximized', async () => {
+        const wrapper = await mountDialog({ visible: true, maximizable: true, breakpoints: { '960px': '75vw' } });
+        const css = [...document.head.querySelectorAll('style')].map((style) => style.innerHTML).find((text) => text.includes('75vw'));
+
+        expect(css).toContain(':not(.p-dialog-maximized)');
 
         wrapper.unmount();
     });

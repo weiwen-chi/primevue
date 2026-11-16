@@ -26447,6 +26447,14 @@
                             "description": "Current maximized state as a boolean."
                         },
                         {
+                            "name": "d_size",
+                            "optional": false,
+                            "readonly": false,
+                            "type": "null | Object",
+                            "default": "null",
+                            "description": "Size of the dialog in pixels after it has been resized by the user, null when not resized."
+                        },
+                        {
                             "name": "rendered",
                             "optional": false,
                             "readonly": false,

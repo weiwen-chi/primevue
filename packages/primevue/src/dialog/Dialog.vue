@@ -23,7 +23,7 @@
                     :aria-labelledby="ariaLabelledById"
                     :aria-modal="modal"
                     :data-p="dataP"
-                    v-bind="ptmi('root')"
+                    v-bind="getRootAttrs()"
                 >
                     <slot v-if="$slots.container" name="container" :closeCallback="close" :maximizeCallback="(event) => maximize(event)" :initDragCallback="initDrag"></slot>
                     <template v-else>
@@ -108,7 +108,7 @@ import FocusTrap from 'primevue/focustrap';
 import Portal from 'primevue/portal';
 import Ripple from 'primevue/ripple';
 import { blockBodyScroll, unblockBodyScroll } from 'primevue/utils';
-import { computed } from 'vue';
+import { computed, mergeProps } from 'vue';
 import BaseDialog from './BaseDialog.vue';
 
 /**
@@ -131,6 +131,7 @@ export default {
         return {
             containerVisible: this.visible,
             d_maximized: this.maximized,
+            d_size: null,
             rendered: this.visible,
             focusableMax: null,
             focusableClose: null,
@@ -153,6 +154,8 @@ export default {
     lastPageY: null,
     maskMouseDownTarget: null,
     resizeState: null,
+    resizeFrame: null,
+    pendingResizeEvent: null,
     documentResizeListener: null,
     documentResizeEndListener: null,
     closing: false,
@@ -176,6 +179,7 @@ export default {
         this.unbindDocumentState();
         this.unbindGlobalListeners();
         this.unbindDocumentResizeListeners();
+        this.cancelResizeFrame();
         this.destroyStyle();
 
         if (this.mask && this.autoZIndex) {
@@ -291,6 +295,12 @@ export default {
             this.containerVisible = false;
             this.unbindDocumentState();
             this.unbindGlobalListeners();
+
+            // the container is rendered again on the next show, it starts with its default size
+            if (this.destroyOnClose) {
+                this.d_size = null;
+            }
+
             this.$emit('after-hide');
         },
         onMaskMouseDown(event) {
@@ -408,7 +418,7 @@ export default {
                 for (let breakpoint in this.breakpoints) {
                     innerHTML += `
                         @media screen and (max-width: ${breakpoint}) {
-                            .p-dialog[${this.$attrSelector}] {
+                            .p-dialog[${this.$attrSelector}]:not(.p-dialog-maximized) {
                                 width: ${this.breakpoints[breakpoint]} !important;
                             }
                         }
@@ -544,12 +554,9 @@ export default {
                 position: 'fixed',
                 margin: '0',
                 left: rect.left + 'px',
-                top: rect.top + 'px',
-                width: rect.width + 'px',
-                height: rect.height + 'px',
-                'max-width': 'none',
-                'max-height': 'none'
+                top: rect.top + 'px'
             });
+            this.d_size = { width: rect.width, height: rect.height };
 
             document.body.setAttribute('data-p-unselectable-text', 'true');
             !this.isUnstyled && addStyle(document.body, { 'user-select': 'none' });
@@ -558,9 +565,27 @@ export default {
             this.$emit('resizestart', { originalEvent: event, width: rect.width, height: rect.height });
         },
         onResize(event) {
+            if (!this.resizeState) {
+                return;
+            }
+
+            // Coalesce pointer moves so that styles are written and `resize` is emitted at most once per frame.
+            this.pendingResizeEvent = event;
+
+            if (!this.resizeFrame) {
+                this.resizeFrame = window.requestAnimationFrame(() => {
+                    this.resizeFrame = null;
+                    this.flushResize();
+                });
+            }
+        },
+        flushResize() {
+            const event = this.pendingResizeEvent;
             const state = this.resizeState;
 
-            if (!state || !this.container) {
+            this.pendingResizeEvent = null;
+
+            if (!event || !state || !this.container) {
                 return;
             }
 
@@ -579,15 +604,31 @@ export default {
             width = Math.max(width, this.minWidth);
             height = Math.max(height, this.minHeight);
 
-            this.container.style.width = width + 'px';
-            this.container.style.height = height + 'px';
+            this.d_size = { width, height };
 
             this.$emit('resize', { originalEvent: event, width, height });
+        },
+        getRootAttrs() {
+            // A method rather than a computed property since $attrs is not reactive. The resized size is merged
+            // after the user's style so that re-rendering does not reset it.
+            const attrs = this.ptmi('root');
+
+            return this.resizeStyle ? mergeProps(attrs, { style: this.resizeStyle }) : attrs;
+        },
+        cancelResizeFrame() {
+            if (this.resizeFrame) {
+                window.cancelAnimationFrame(this.resizeFrame);
+                this.resizeFrame = null;
+            }
         },
         onResizeEnd(event) {
             if (!this.resizeState) {
                 return;
             }
+
+            // Apply the last pointer position before reporting the final size.
+            this.cancelResizeFrame();
+            this.flushResize();
 
             this.resizeState = null;
             this.unbindDocumentResizeListeners();
@@ -595,8 +636,7 @@ export default {
             document.body.removeAttribute('data-p-unselectable-text');
             !this.isUnstyled && (document.body.style['user-select'] = '');
 
-            const width = this.container ? parseFloat(this.container.style.width) : undefined;
-            const height = this.container ? parseFloat(this.container.style.height) : undefined;
+            const { width, height } = this.d_size || {};
 
             this.$emit('resizeend', { originalEvent: event, width, height });
         },
@@ -631,6 +671,18 @@ export default {
         resizeDirections() {
             return ['e', 's', 'se'];
         },
+        resizeStyle() {
+            // Sizes are important so that they win over the `breakpoints` widths, they are not applied while maximized.
+            return this.d_size && !this.d_maximized
+                ? {
+                      width: `${this.d_size.width}px !important`,
+                      height: `${this.d_size.height}px !important`,
+                      'max-width': 'none !important',
+                      'max-height': 'none !important'
+                  }
+                : undefined;
+        },
+
         ariaLabelledById() {
             return this.header != null || this.$attrs['aria-labelledby'] !== null ? this.$id + '_header' : null;
         },

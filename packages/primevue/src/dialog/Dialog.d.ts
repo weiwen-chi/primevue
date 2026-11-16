@@ -141,6 +141,11 @@ export interface DialogState {
      */
     d_maximized: boolean;
     /**
+     * Size of the dialog in pixels after it has been resized by the user, null when not resized.
+     * @defaultValue null
+     */
+    d_size: { width: number; height: number } | null;
+    /**
      * Whether the dialog has been displayed at least once, used to keep the content alive when `destroyOnClose` is false.
      * @defaultValue false
      */

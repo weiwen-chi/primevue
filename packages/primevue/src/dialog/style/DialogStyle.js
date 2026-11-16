@@ -11,7 +11,7 @@ const resizeStyle = `
 
     .p-dialog-resize-handle-e {
         top: 0;
-        right: -4px;
+        right: -3px;
         width: 6px;
         height: 100%;
         cursor: ew-resize;
@@ -19,7 +19,7 @@ const resizeStyle = `
 
     .p-dialog-resize-handle-s {
         left: 0;
-        bottom: -4px;
+        bottom: -3px;
         width: 100%;
         height: 6px;
         cursor: ns-resize;
