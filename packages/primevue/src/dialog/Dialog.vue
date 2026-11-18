@@ -1,8 +1,30 @@
 <template>
     <Portal :appendTo="appendTo">
-        <div v-if="containerVisible" :ref="maskRef" :class="cx('mask')" :style="sx('mask', true, { position, modal })" @mousedown="onMaskMouseDown" @mouseup="onMaskMouseUp" :data-p="dataP" v-bind="ptm('mask')">
+        <div
+            v-if="containerVisible || keepRendered"
+            v-show="containerVisible"
+            :ref="maskRef"
+            :class="cx('mask')"
+            :style="sx('mask', true, { position, modal })"
+            @mousedown="onMaskMouseDown"
+            @mouseup="onMaskMouseUp"
+            :data-p="dataP"
+            v-bind="ptm('mask')"
+        >
             <transition name="p-dialog" @enter="onEnter" @after-enter="onAfterEnter" @before-leave="onBeforeLeave" @leave="onLeave" @after-leave="onAfterLeave" appear v-bind="ptm('transition')">
-                <div v-if="visible" :ref="containerRef" v-focustrap="{ disabled: !modal }" :class="cx('root')" :style="sx('root')" role="dialog" :aria-labelledby="ariaLabelledById" :aria-modal="modal" :data-p="dataP" v-bind="ptmi('root')">
+                <div
+                    v-if="visible || keepRendered"
+                    v-show="visible"
+                    :ref="containerRef"
+                    v-focustrap="{ disabled: !modal }"
+                    :class="cx('root')"
+                    :style="sx('root')"
+                    role="dialog"
+                    :aria-labelledby="ariaLabelledById"
+                    :aria-modal="modal"
+                    :data-p="dataP"
+                    v-bind="getRootAttrs()"
+                >
                     <slot v-if="$slots.container" name="container" :closeCallback="close" :maximizeCallback="(event) => maximize(event)" :initDragCallback="initDrag"></slot>
                     <template v-else>
                         <div v-if="showHeader" :ref="headerContainerRef" :class="cx('header')" @mousedown="initDrag" v-bind="ptm('header')">
@@ -10,7 +32,7 @@
                                 <span v-if="header" :id="ariaLabelledById" :class="cx('title')" v-bind="ptm('title')">{{ header }}</span>
                             </slot>
                             <div :class="cx('headerActions')" v-bind="ptm('headerActions')">
-                                <slot v-if="maximizable" name="maximizebutton" :maximized="maximized" :maximizeCallback="(event) => maximize(event)">
+                                <slot v-if="maximizable" name="maximizebutton" :maximized="d_maximized" :maximizeCallback="(event) => maximize(event)">
                                     <Button
                                         :ref="maximizableRef"
                                         :autofocus="focusableMax"
@@ -23,8 +45,8 @@
                                         data-pc-group-section="headericon"
                                     >
                                         <template #icon="slotProps">
-                                            <slot name="maximizeicon" :maximized="maximized">
-                                                <component :is="maximizeIconComponent" :class="[slotProps.class, maximized ? minimizeIcon : maximizeIcon]" v-bind="ptm('pcMaximizeButton')['icon']" />
+                                            <slot name="maximizeicon" :maximized="d_maximized">
+                                                <component :is="maximizeIconComponent" :class="[slotProps.class, d_maximized ? minimizeIcon : maximizeIcon]" v-bind="ptm('pcMaximizeButton')['icon']" />
                                             </slot>
                                         </template>
                                     </Button>
@@ -57,6 +79,17 @@
                             <slot name="footer">{{ footer }}</slot>
                         </div>
                     </template>
+                    <template v-if="resizable && !d_maximized">
+                        <div
+                            v-for="direction in resizeDirections"
+                            :key="direction"
+                            :class="cx('resizeHandle', { direction })"
+                            aria-hidden="true"
+                            :data-p-direction="direction"
+                            @pointerdown="initResize($event, direction)"
+                            v-bind="ptm('resizeHandle', { context: { direction } })"
+                        ></div>
+                    </template>
                 </div>
             </transition>
         </div>
@@ -65,7 +98,7 @@
 
 <script>
 import { cn } from '@primeuix/utils';
-import { addClass, addStyle, focus, getOuterHeight, getOuterWidth, getViewport, setAttribute } from '@primeuix/utils/dom';
+import { addClass, addStyle, focus, removeClass, getOuterHeight, getOuterWidth, getViewport, setAttribute } from '@primeuix/utils/dom';
 import { ZIndex } from '@primeuix/utils/zindex';
 import TimesIcon from '@primevue/icons/times';
 import WindowMaximizeIcon from '@primevue/icons/windowmaximize';
@@ -75,14 +108,20 @@ import FocusTrap from 'primevue/focustrap';
 import Portal from 'primevue/portal';
 import Ripple from 'primevue/ripple';
 import { blockBodyScroll, unblockBodyScroll } from 'primevue/utils';
-import { computed } from 'vue';
+import { computed, mergeProps } from 'vue';
 import BaseDialog from './BaseDialog.vue';
+
+/**
+ * Dialogs that are currently open (or opening), in the order they were shown.
+ * The last entry is the top-most dialog, which is the only one allowed to react to the Escape key.
+ */
+const dialogStack = [];
 
 export default {
     name: 'Dialog',
     extends: BaseDialog,
     inheritAttrs: false,
-    emits: ['update:visible', 'show', 'hide', 'after-hide', 'maximize', 'unmaximize', 'dragstart', 'dragend'],
+    emits: ['update:visible', 'update:maximized', 'show', 'hide', 'after-hide', 'maximize', 'unmaximize', 'dragstart', 'dragend', 'resizestart', 'resize', 'resizeend'],
     provide() {
         return {
             dialogRef: computed(() => this._instance)
@@ -91,7 +130,9 @@ export default {
     data() {
         return {
             containerVisible: this.visible,
-            maximized: false,
+            d_maximized: this.maximized,
+            d_size: null,
+            rendered: this.visible,
             focusableMax: null,
             focusableClose: null,
             target: null
@@ -112,14 +153,33 @@ export default {
     lastPageX: null,
     lastPageY: null,
     maskMouseDownTarget: null,
+    resizeState: null,
+    resizeFrame: null,
+    pendingResizeEvent: null,
+    documentResizeListener: null,
+    documentResizeEndListener: null,
+    closing: false,
+    watch: {
+        visible(newValue) {
+            if (newValue) {
+                this.rendered = true;
+            }
+        },
+        maximized(newValue) {
+            this.setMaximized(newValue);
+        }
+    },
     updated() {
         if (this.visible) {
             this.containerVisible = this.visible;
         }
     },
     beforeUnmount() {
+        this.unregisterFromStack();
         this.unbindDocumentState();
         this.unbindGlobalListeners();
+        this.unbindDocumentResizeListeners();
+        this.cancelResizeFrame();
         this.destroyStyle();
 
         if (this.mask && this.autoZIndex) {
@@ -135,12 +195,67 @@ export default {
         }
     },
     methods: {
-        close() {
-            this.$emit('update:visible', false);
+        close(event) {
+            this.requestClose(event, 'close');
+        },
+        requestClose(originalEvent, source) {
+            if (this.closing) {
+                return;
+            }
+
+            const hide = () => this.$emit('update:visible', false);
+
+            if (!this.beforeClose) {
+                hide();
+
+                return;
+            }
+
+            let result;
+
+            try {
+                result = this.beforeClose({ originalEvent, source });
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error(error);
+
+                return;
+            }
+
+            if (result && typeof result.then === 'function') {
+                this.closing = true;
+
+                result
+                    .then((allowed) => {
+                        allowed !== false && hide();
+                    })
+                    .catch(() => {
+                        // a rejected guard cancels closing
+                    })
+                    .finally(() => {
+                        this.closing = false;
+                    });
+            } else if (result !== false) {
+                hide();
+            }
+        },
+        registerToStack() {
+            this.unregisterFromStack();
+            dialogStack.push(this);
+        },
+        unregisterFromStack() {
+            const index = dialogStack.indexOf(this);
+
+            index > -1 && dialogStack.splice(index, 1);
+        },
+        isTopMost() {
+            return dialogStack[dialogStack.length - 1] === this;
         },
         onEnter() {
             this.$emit('show');
             this.target = document.activeElement;
+            this.registerToStack();
+            this.mask && removeClass(this.mask, 'p-overlay-mask-leave-active');
             this.enableDocumentSettings();
             this.bindGlobalListeners();
 
@@ -159,10 +274,15 @@ export default {
             if (this.dragging && this.documentDragEndListener) {
                 this.documentDragEndListener();
             }
+
+            if (this.resizeState) {
+                this.onResizeEnd();
+            }
         },
         onLeave() {
             this.$emit('hide');
-            focus(this.target);
+            this.unregisterFromStack();
+            this.restoreFocus && focus(this.target);
             this.target = null;
             this.focusableClose = null;
             this.focusableMax = null;
@@ -175,14 +295,20 @@ export default {
             this.containerVisible = false;
             this.unbindDocumentState();
             this.unbindGlobalListeners();
+
+            // the container is rendered again on the next show, it starts with its default size
+            if (this.destroyOnClose) {
+                this.d_size = null;
+            }
+
             this.$emit('after-hide');
         },
         onMaskMouseDown(event) {
             this.maskMouseDownTarget = event.target;
         },
-        onMaskMouseUp() {
+        onMaskMouseUp(event) {
             if (this.dismissableMask && this.modal && this.mask === this.maskMouseDownTarget) {
-                this.close();
+                this.requestClose(event, 'mask');
             }
         },
         focus() {
@@ -215,31 +341,36 @@ export default {
             }
         },
         maximize(event) {
-            if (this.maximized) {
-                this.maximized = false;
-                this.$emit('unmaximize', event);
-            } else {
-                this.maximized = true;
-                this.$emit('maximize', event);
+            const value = !this.d_maximized;
+
+            this.setMaximized(value);
+            this.$emit('update:maximized', value);
+            this.$emit(value ? 'maximize' : 'unmaximize', event);
+        },
+        setMaximized(value) {
+            if (this.d_maximized === value) {
+                return;
             }
 
-            if (!this.modal) {
-                this.maximized ? blockBodyScroll() : unblockBodyScroll();
+            this.d_maximized = value;
+
+            if (!this.modal && !this.blockScroll && this.containerVisible) {
+                value ? blockBodyScroll() : unblockBodyScroll();
             }
         },
         enableDocumentSettings() {
-            if (this.modal || (!this.modal && this.blockScroll) || (this.maximizable && this.maximized)) {
+            if (this.modal || (!this.modal && this.blockScroll) || this.d_maximized) {
                 blockBodyScroll();
             }
         },
         unbindDocumentState() {
-            if (this.modal || (!this.modal && this.blockScroll) || (this.maximizable && this.maximized)) {
+            if (this.modal || (!this.modal && this.blockScroll) || this.d_maximized) {
                 unblockBodyScroll();
             }
         },
         onKeyDown(event) {
-            if (event.code === 'Escape' && this.closeOnEscape && !event.isComposing) {
-                this.close();
+            if (event.code === 'Escape' && this.closeOnEscape && !event.isComposing && this.isTopMost()) {
+                this.requestClose(event, 'escape');
             }
         },
         bindDocumentKeyDownListener() {
@@ -287,7 +418,7 @@ export default {
                 for (let breakpoint in this.breakpoints) {
                     innerHTML += `
                         @media screen and (max-width: ${breakpoint}) {
-                            .p-dialog[${this.$attrSelector}] {
+                            .p-dialog[${this.$attrSelector}]:not(.p-dialog-maximized) {
                                 width: ${this.breakpoints[breakpoint]} !important;
                             }
                         }
@@ -397,12 +528,161 @@ export default {
                 window.document.removeEventListener('mouseup', this.documentDragEndListener);
                 this.documentDragEndListener = null;
             }
+        },
+        initResize(event, direction) {
+            if (!this.resizable || this.d_maximized || !this.container || (event.button !== undefined && event.button !== 0)) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const rect = this.container.getBoundingClientRect();
+
+            this.resizeState = {
+                direction,
+                startX: event.clientX,
+                startY: event.clientY,
+                startWidth: rect.width,
+                startHeight: rect.height,
+                left: rect.left,
+                top: rect.top
+            };
+
+            // Pin the dialog at its current position so that it grows towards the pointer instead of from the center.
+            addStyle(this.container, {
+                position: 'fixed',
+                margin: '0',
+                left: rect.left + 'px',
+                top: rect.top + 'px'
+            });
+            this.d_size = { width: rect.width, height: rect.height };
+
+            document.body.setAttribute('data-p-unselectable-text', 'true');
+            !this.isUnstyled && addStyle(document.body, { 'user-select': 'none' });
+
+            this.bindDocumentResizeListeners();
+            this.$emit('resizestart', { originalEvent: event, width: rect.width, height: rect.height });
+        },
+        onResize(event) {
+            if (!this.resizeState) {
+                return;
+            }
+
+            // Coalesce pointer moves so that styles are written and `resize` is emitted at most once per frame.
+            this.pendingResizeEvent = event;
+
+            if (!this.resizeFrame) {
+                this.resizeFrame = window.requestAnimationFrame(() => {
+                    this.resizeFrame = null;
+                    this.flushResize();
+                });
+            }
+        },
+        flushResize() {
+            const event = this.pendingResizeEvent;
+            const state = this.resizeState;
+
+            this.pendingResizeEvent = null;
+
+            if (!event || !state || !this.container) {
+                return;
+            }
+
+            const deltaX = event.clientX - state.startX;
+            const deltaY = event.clientY - state.startY;
+            let width = state.direction.includes('e') ? state.startWidth + deltaX : state.startWidth;
+            let height = state.direction.includes('s') ? state.startHeight + deltaY : state.startHeight;
+
+            if (this.keepInViewport) {
+                const viewport = getViewport();
+
+                width = Math.min(width, viewport.width - state.left);
+                height = Math.min(height, viewport.height - state.top);
+            }
+
+            width = Math.max(width, this.minWidth);
+            height = Math.max(height, this.minHeight);
+
+            this.d_size = { width, height };
+
+            this.$emit('resize', { originalEvent: event, width, height });
+        },
+        getRootAttrs() {
+            // A method rather than a computed property since $attrs is not reactive. The resized size is merged
+            // after the user's style so that re-rendering does not reset it.
+            const attrs = this.ptmi('root');
+
+            return this.resizeStyle ? mergeProps(attrs, { style: this.resizeStyle }) : attrs;
+        },
+        cancelResizeFrame() {
+            if (this.resizeFrame) {
+                window.cancelAnimationFrame(this.resizeFrame);
+                this.resizeFrame = null;
+            }
+        },
+        onResizeEnd(event) {
+            if (!this.resizeState) {
+                return;
+            }
+
+            // Apply the last pointer position before reporting the final size.
+            this.cancelResizeFrame();
+            this.flushResize();
+
+            this.resizeState = null;
+            this.unbindDocumentResizeListeners();
+
+            document.body.removeAttribute('data-p-unselectable-text');
+            !this.isUnstyled && (document.body.style['user-select'] = '');
+
+            const { width, height } = this.d_size || {};
+
+            this.$emit('resizeend', { originalEvent: event, width, height });
+        },
+        bindDocumentResizeListeners() {
+            this.unbindDocumentResizeListeners();
+            this.documentResizeListener = this.onResize.bind(this);
+            this.documentResizeEndListener = this.onResizeEnd.bind(this);
+            window.document.addEventListener('pointermove', this.documentResizeListener);
+            window.document.addEventListener('pointerup', this.documentResizeEndListener);
+            window.document.addEventListener('pointercancel', this.documentResizeEndListener);
+        },
+        unbindDocumentResizeListeners() {
+            if (this.documentResizeListener) {
+                window.document.removeEventListener('pointermove', this.documentResizeListener);
+                this.documentResizeListener = null;
+            }
+
+            if (this.documentResizeEndListener) {
+                window.document.removeEventListener('pointerup', this.documentResizeEndListener);
+                window.document.removeEventListener('pointercancel', this.documentResizeEndListener);
+                this.documentResizeEndListener = null;
+            }
         }
     },
     computed: {
         maximizeIconComponent() {
-            return this.maximized ? (this.minimizeIcon ? 'span' : 'WindowMinimizeIcon') : this.maximizeIcon ? 'span' : 'WindowMaximizeIcon';
+            return this.d_maximized ? (this.minimizeIcon ? 'span' : 'WindowMinimizeIcon') : this.maximizeIcon ? 'span' : 'WindowMaximizeIcon';
         },
+        keepRendered() {
+            return !this.destroyOnClose && this.rendered;
+        },
+        resizeDirections() {
+            return ['e', 's', 'se'];
+        },
+        resizeStyle() {
+            // Sizes are important so that they win over the `breakpoints` widths, they are not applied while maximized.
+            return this.d_size && !this.d_maximized
+                ? {
+                      width: `${this.d_size.width}px !important`,
+                      height: `${this.d_size.height}px !important`,
+                      'max-width': 'none !important',
+                      'max-height': 'none !important'
+                  }
+                : undefined;
+        },
+
         ariaLabelledById() {
             return this.header != null || this.$attrs['aria-labelledby'] !== null ? this.$id + '_header' : null;
         },
@@ -411,8 +691,9 @@ export default {
         },
         dataP() {
             return cn({
-                maximized: this.maximized,
-                modal: this.modal
+                maximized: this.d_maximized,
+                modal: this.modal,
+                resizable: this.resizable
             });
         }
     },

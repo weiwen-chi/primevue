@@ -34,6 +34,10 @@ export interface DialogPassThroughMethodOptions<T> {
      */
     state: DialogState;
     /**
+     * Defines current options, only available for the resize handles.
+     */
+    context: DialogContext;
+    /**
      * Defines parent instance.
      */
     parent: T;
@@ -101,6 +105,10 @@ export interface DialogPassThroughOptions<T = any> {
      */
     mask?: DialogPassThroughOptionType<T>;
     /**
+     * Used to pass attributes to the resize handle DOM elements. The handle direction is available as `context.direction`.
+     */
+    resizeHandle?: DialogPassThroughOptionType<T>;
+    /**
      * Used to manage all lifecycle hooks.
      * @see {@link BaseComponent.ComponentHooks}
      */
@@ -131,7 +139,75 @@ export interface DialogState {
      * Current maximized state as a boolean.
      * @defaultValue false
      */
-    maximized: boolean;
+    d_maximized: boolean;
+    /**
+     * Size of the dialog in pixels after it has been resized by the user, null when not resized.
+     * @defaultValue null
+     */
+    d_size: { width: number; height: number } | null;
+    /**
+     * Whether the dialog has been displayed at least once, used to keep the content alive when `destroyOnClose` is false.
+     * @defaultValue false
+     */
+    rendered: boolean;
+}
+
+/**
+ * Defines current options in Dialog component.
+ */
+export interface DialogContext {
+    /**
+     * Direction of the resize handle, `e` (right edge), `s` (bottom edge) or `se` (bottom right corner).
+     */
+    direction: 'e' | 's' | 'se';
+}
+
+/**
+ * Source of a close request.
+ * - `close`: the close button or the `closeCallback` of a template
+ * - `escape`: the escape key
+ * - `mask`: a click on the modal mask when `dismissableMask` is enabled
+ */
+export type DialogCloseSource = 'close' | 'escape' | 'mask';
+
+/**
+ * Parameter of the `beforeClose` callback.
+ */
+export interface DialogBeforeCloseEvent {
+    /**
+     * Browser event that triggered the close request, if any.
+     */
+    originalEvent: Event | undefined;
+    /**
+     * What triggered the close request.
+     */
+    source: DialogCloseSource;
+}
+
+/**
+ * Signature of the `beforeClose` callback, returning `false` or a promise resolving to `false` cancels closing.
+ */
+export type DialogBeforeCloseHandler = (event: DialogBeforeCloseEvent) => boolean | void | Promise<boolean | void>;
+
+/**
+ * Custom resize event.
+ * @see {@link DialogEmitsOptions.resizestart}
+ * @see {@link DialogEmitsOptions.resize}
+ * @see {@link DialogEmitsOptions.resizeend}
+ */
+export interface DialogResizeEvent {
+    /**
+     * Browser event.
+     */
+    originalEvent: Event | undefined;
+    /**
+     * Width of the dialog in pixels.
+     */
+    width: number;
+    /**
+     * Height of the dialog in pixels.
+     */
+    height: number;
 }
 
 /**
@@ -235,6 +311,44 @@ export interface DialogProps {
      * @defaultValue false
      */
     maximizable?: boolean | undefined;
+    /**
+     * Maximized (full screen) state of the dialog, supports two-way binding with `v-model:maximized`.
+     * Can also be used without `maximizable` to display a full screen dialog without a maximize button.
+     * @defaultValue false
+     */
+    maximized?: boolean | undefined;
+    /**
+     * Enables resizing the dialog with the handles at the right edge, bottom edge and bottom right corner. Not available while maximized.
+     * @defaultValue false
+     */
+    resizable?: boolean | undefined;
+    /**
+     * Minimum width in pixels when resizing.
+     * @defaultValue 150
+     */
+    minWidth?: number | undefined;
+    /**
+     * Minimum height in pixels when resizing.
+     * @defaultValue 100
+     */
+    minHeight?: number | undefined;
+    /**
+     * Guard invoked before the dialog is closed by the user with the close button, the escape key or a mask click.
+     * Returning `false`, or a promise resolving to `false` (or rejecting), cancels closing. Any other value closes the dialog.
+     * Receives a DialogBeforeCloseEvent with the `originalEvent` and the `source` of the request (`close`, `escape` or `mask`). Not invoked when `visible` is changed by the parent.
+     */
+    beforeClose?: DialogBeforeCloseHandler | undefined;
+    /**
+     * Whether the content is destroyed when the dialog is hidden. When false, the content is kept alive (hidden) after the first display, preserving its state.
+     * Content is never rendered before the dialog is displayed for the first time.
+     * @defaultValue true
+     */
+    destroyOnClose?: boolean | undefined;
+    /**
+     * Whether focus returns to the element that was focused before the dialog was displayed when the dialog hides.
+     * @defaultValue true
+     */
+    restoreFocus?: boolean | undefined;
     /**
      * Object literal to define widths per screen size.
      */
@@ -441,6 +555,26 @@ export interface DialogEmitsOptions {
      * @param {event} event - Browser event.
      */
     dragend(event: Event): void;
+    /**
+     * Emitted when the maximized state is changed by the user.
+     * @param {boolean} value - New value.
+     */
+    'update:maximized'(value: boolean): void;
+    /**
+     * Fired when a dialog resize begins.
+     * @param {DialogResizeEvent} event - Custom resize event.
+     */
+    resizestart(event: DialogResizeEvent): void;
+    /**
+     * Fired while a dialog is being resized.
+     * @param {DialogResizeEvent} event - Custom resize event.
+     */
+    resize(event: DialogResizeEvent): void;
+    /**
+     * Fired when a dialog resize completes.
+     * @param {DialogResizeEvent} event - Custom resize event.
+     */
+    resizeend(event: DialogResizeEvent): void;
 }
 
 export declare type DialogEmits = EmitFn<DialogEmitsOptions>;
