@@ -265,6 +265,14 @@ export interface ColumnPassThroughOptions {
      */
     rowToggleIcon?: ColumnPassThroughOptionType;
     /**
+     * Used to pass attributes to the node toggle button's DOM element.
+     */
+    nodeToggleButton?: ColumnPassThroughOptionType;
+    /**
+     * Used to pass attributes to the node toggle icon's DOM element.
+     */
+    nodeToggleIcon?: ColumnPassThroughOptionType;
+    /**
      * Used to pass attributes to the body cell's DOM element.
      */
     bodyCell?: ColumnPassThroughOptionType;
@@ -280,6 +288,10 @@ export interface ColumnPassThroughOptions {
      * Used to pass attributes to the checkbox's DOM element.
      */
     pcRowCheckbox?: CheckboxPassThroughOptionType;
+    /**
+     * Used to pass attributes to the node checkbox's DOM element.
+     */
+    pcNodeCheckbox?: CheckboxPassThroughOptionType;
     /**
      * Used to pass attributes to the row editor init button's DOM element.
      */
@@ -1024,9 +1036,9 @@ export declare type ColumnEmits = EmitFn<ColumnEmitsOptions>;
 /**
  * **PrimeVue - Column**
  *
- * _Column is a helper component for Column and TreeTable._
+ * _Column is a helper component for DataTable and TreeTable._
  *
- * [Live Demo](https://www.primevue.org/Column/)
+ * [Live Demo](https://www.primevue.org/datatable/)
  * --- ---
  * ![PrimeVue](https://primefaces.org/cdn/primevue/images/logo-100.png)
  *

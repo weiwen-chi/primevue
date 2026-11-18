@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 
 const baseUrl = '/';
@@ -15,6 +16,45 @@ try {
 } catch {
     // NOOP
 }
+
+// Nested page paths that need redirects (e.g., /theming/styled.md -> /llms/pages/styled.md)
+const nestedPagePaths = {
+    'theming/styled': 'styled',
+    'theming/unstyled': 'unstyled',
+    'guides/accessibility': 'accessibility',
+    'guides/animations': 'animations',
+    'guides/dynamicimports': 'dynamicimports',
+    'guides/rtl': 'rtl',
+    'guides/migration/v4': 'v4'
+};
+
+const markdownRedirects = (() => {
+    const rules = {};
+    const llmsDir = path.resolve(__dirname, 'server/assets/llms');
+
+    try {
+        // Add nested path redirects
+        for (const [nestedPath, fileName] of Object.entries(nestedPagePaths)) {
+            rules[`/${nestedPath}.md`] = { redirect: { to: `/llms/pages/${fileName}.md`, statusCode: 301 } };
+        }
+
+        // Add direct page redirects
+        for (const file of fs.readdirSync(path.join(llmsDir, 'pages'))) {
+            rules[`/${file}`] = { redirect: { to: `/llms/pages/${file}`, statusCode: 301 } };
+        }
+
+        // Add component redirects
+        for (const file of fs.readdirSync(path.join(llmsDir, 'components'))) {
+            if (!rules[`/${file}`]) {
+                rules[`/${file}`] = { redirect: { to: `/llms/components/${file}`, statusCode: 301 } };
+            }
+        }
+    } catch {
+        // Silently fail if llms directory doesn't exist yet
+    }
+
+    return rules;
+})();
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -42,7 +82,9 @@ export default defineNuxtConfig({
     },
     routeRules: {
         '/accessibility': { redirect: { to: '/guides/accessibility', statusCode: 301 } },
-        '/installation': { redirect: { to: '/vite', statusCode: 301 } }
+        '/installation': { redirect: { to: '/vite', statusCode: 301 } },
+        '/uikit/guide': { redirect: { to: '/uikit/guide/v3', statusCode: 301 } },
+        ...markdownRedirects
     },
     primevue: {
         usePrimeVue: process.env.DEV_ENV !== 'hot',

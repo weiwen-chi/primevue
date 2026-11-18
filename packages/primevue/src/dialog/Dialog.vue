@@ -3,7 +3,7 @@
         <div v-if="containerVisible" :ref="maskRef" :class="cx('mask')" :style="sx('mask', true, { position, modal })" @mousedown="onMaskMouseDown" @mouseup="onMaskMouseUp" :data-p="dataP" v-bind="ptm('mask')">
             <transition name="p-dialog" @enter="onEnter" @after-enter="onAfterEnter" @before-leave="onBeforeLeave" @leave="onLeave" @after-leave="onAfterLeave" appear v-bind="ptm('transition')">
                 <div v-if="visible" :ref="containerRef" v-focustrap="{ disabled: !modal }" :class="cx('root')" :style="sx('root')" role="dialog" :aria-labelledby="ariaLabelledById" :aria-modal="modal" :data-p="dataP" v-bind="ptmi('root')">
-                    <slot v-if="$slots.container" name="container" :closeCallback="close" :maximizeCallback="(event) => maximize(event)"></slot>
+                    <slot v-if="$slots.container" name="container" :closeCallback="close" :maximizeCallback="(event) => maximize(event)" :initDragCallback="initDrag"></slot>
                     <template v-else>
                         <div v-if="showHeader" :ref="headerContainerRef" :class="cx('header')" @mousedown="initDrag" v-bind="ptm('header')">
                             <slot name="header" :class="cx('title')">
@@ -145,7 +145,7 @@ export default {
             this.bindGlobalListeners();
 
             if (this.autoZIndex) {
-                ZIndex.set('modal', this.mask, this.baseZIndex + this.$primevue.config.zIndex.modal);
+                ZIndex.set('modal', this.mask, this.baseZIndex || this.$primevue.config.zIndex.modal);
             }
         },
         onAfterEnter() {
@@ -153,7 +153,7 @@ export default {
         },
         onBeforeLeave() {
             if (this.modal) {
-                !this.isUnstyled && addClass(this.mask, 'p-overlay-mask-leave');
+                !this.isUnstyled && addClass(this.mask, 'p-overlay-mask-leave-active');
             }
 
             if (this.dragging && this.documentDragEndListener) {
@@ -238,7 +238,7 @@ export default {
             }
         },
         onKeyDown(event) {
-            if (event.code === 'Escape' && this.closeOnEscape) {
+            if (event.code === 'Escape' && this.closeOnEscape && !event.isComposing) {
                 this.close();
             }
         },

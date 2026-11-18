@@ -121,21 +121,23 @@ export default {
             }
         },
         async saveTheme(theme) {
-            const { error } = await $fetch(this.designerApiUrl + '/theme/update', {
-                method: 'PATCH',
-                credentials: 'include',
-                headers: {
-                    'X-CSRF-Token': this.$appState.designer.csrfToken
-                },
-                body: {
-                    key: theme.key,
-                    preset: theme.preset,
-                    config: theme.config
-                }
-            });
+            if (theme.origin === 'web') {
+                const { error } = await $fetch(this.designerApiUrl + '/theme/update', {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'X-CSRF-Token': this.$appState.designer.csrfToken
+                    },
+                    body: {
+                        key: theme.key,
+                        preset: theme.preset,
+                        config: theme.config
+                    }
+                });
 
-            if (error) {
-                this.$toast.add({ severity: 'error', summary: 'An error occured', detail: error.message, life: 3000 });
+                if (error) {
+                    this.$toast.add({ severity: 'error', summary: 'An error occured', detail: error.message, life: 3000 });
+                }
             }
         },
         applyTheme(theme) {
@@ -220,8 +222,9 @@ export default {
             this.$appState.designer.theme = {
                 key: data.t_key,
                 name: data.t_name,
-                preset: JSON.parse(data.t_preset),
-                config: JSON.parse(data.t_config)
+                preset: typeof data.t_preset === 'string' ? JSON.parse(data.t_preset) : data.t_preset,
+                config: typeof data.t_config === 'string' ? JSON.parse(data.t_config) : data.t_config,
+                origin: data.t_origin
             };
 
             usePreset(this.$appState.designer.theme.preset);
@@ -245,9 +248,10 @@ export default {
         resolveColor(token) {
             if (token && token.startsWith('{') && token.endsWith('}')) {
                 let cssVariable = $dt(token).variable.slice(4, -1);
-                return getComputedStyle(document.documentElement).getPropertyValue(cssVariable);
+                let color = getComputedStyle(document.documentElement).getPropertyValue(cssVariable);
+                return this.removeAlphaTransparency(color);
             } else {
-                return token;
+                return this.removeAlphaTransparency(token);
             }
         },
         resolveColorPlain(color) {
@@ -256,6 +260,12 @@ export default {
             } else {
                 return color;
             }
+        },
+        removeAlphaTransparency(color) {
+            if (color && color.match(/^#[0-9a-fA-F]{8}$/)) {
+                return color.slice(0, 7);
+            }
+            return color;
         }
     },
     computed: {

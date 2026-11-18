@@ -28,8 +28,9 @@ export default {
                                 dashboard1: 'https://primefaces.org/cdn/primevue/images/templates/atlantis/atlantis-hero-dashboard1.png',
                                 dashboard2: 'https://primefaces.org/cdn/primevue/images/templates/atlantis/atlantis-hero-dashboard2.png',
                                 description: 'Prepare to be amazed by the remastered Atlantis for PrimeVue featuring a new gorgeous dark mode for the entire layout, 5 menu modes, reusable css widgets, utilities, modern icons and many more.',
-                                liveHref: 'https://www.primefaces.org/atlantis-vue/',
+                                liveHref: 'https://atlantis.primevue.org',
                                 docHref: 'https://www.primefaces.org/atlantis-vue/documentation/',
+                                storeHref: 'https://primeui.store/templates/vue/atlantis',
                                 pattern: {
                                     className: 'select-none absolute md:-bottom-28 bottom-36 -left-20 md:-left-28 z-[6] md:w-[50rem] h-auto w-[60rem] opacity-75',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/atlantis/atlantis-hero-pattern.png'
@@ -75,7 +76,7 @@ export default {
                                 {
                                     id: 2,
                                     title: 'Component Themes',
-                                    description: 'Atlantis offers 16 built-in component themes with dark and light options. You are also free to create your own theme by defining couple SASS variables.',
+                                    description: '17 built-in theme colors with the power of 2 presets: Aura and Lara',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/atlantis/features-animation-component-themes.png'
                                 },
                                 {
@@ -170,7 +171,7 @@ export default {
                 template and requires a separate purchase.`,
                             description4: `
                     Atlantis uses Figma as the design tool. It will be possible to download the Figma file after your purchase. You can
-                <a href="https://www.figma.com/file/two0OGwOwHfq0sdjeK34l0/Preview-%7C-Atlantis-2022?node-id=15%3A1427&t=2lNJ5EzW0xuvQWdm-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the
+                <a href="https://www.figma.com/design/2aOISJWanQAd4Kzu8BLYe7/Preview-%7C%C2%A0Atlantis-%7C-2.0.0?node-id=1303-749&t=PVvmnN9FxL8FMgZf-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the
                 Atlantis Figma file as they are available in <PrimeVueNuxtLink to="/uikit">PrimeOne for Figma</PrimeVueNuxtLink> only.`
                         }
                     },

@@ -1,5 +1,5 @@
 <template>
-    <transition name="p-contextmenusub" @enter="onEnter" v-bind="ptm('menu.transition')">
+    <transition name="p-anchored-overlay" @enter="onEnter" v-bind="ptm('menu.transition')">
         <ul v-if="root ? true : visible" ref="container" :tabindex="tabindex" v-bind="ptm('rootList')">
             <template v-for="(processedItem, index) of items" :key="getItemKey(processedItem)">
                 <li
@@ -38,7 +38,7 @@
                                 </template>
                             </a>
                         </template>
-                        <component v-else :is="templates.item" :item="processedItem.item" :hasSubmenu="getItemProp(processedItem, 'items')" :label="getItemLabel(processedItem)" :props="getMenuItemProps(processedItem, index)"></component>
+                        <component v-else :is="templates.item" :item="processedItem.item" :hasSubmenu="!!getItemProp(processedItem, 'items')" :label="getItemLabel(processedItem)" :props="getMenuItemProps(processedItem, index)"></component>
                     </div>
                     <ContextMenuSub
                         v-if="isItemVisible(processedItem) && isItemGroup(processedItem)"

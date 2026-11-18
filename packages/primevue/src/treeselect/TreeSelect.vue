@@ -15,7 +15,7 @@
                 :aria-label="ariaLabel"
                 aria-haspopup="tree"
                 :aria-expanded="overlayVisible"
-                :aria-controls="listId"
+                :aria-controls="overlayVisible ? listId : undefined"
                 @focus="onFocus($event)"
                 @blur="onBlur($event)"
                 @keydown="onKeyDown($event)"
@@ -52,7 +52,7 @@
             </slot>
         </div>
         <Portal :appendTo="appendTo">
-            <transition name="p-connected-overlay" @enter="onOverlayEnter" @after-enter="onOverlayAfterEnter" @leave="onOverlayLeave" @after-leave="onOverlayAfterLeave" v-bind="ptm('transition')">
+            <transition name="p-anchored-overlay" @enter="onOverlayEnter" @after-enter="onOverlayAfterEnter" @leave="onOverlayLeave" @after-leave="onOverlayAfterLeave" v-bind="ptm('transition')">
                 <div v-if="overlayVisible" :ref="overlayRef" @click="onOverlayClick" :class="[cx('panel'), panelClass]" @keydown="onOverlayKeydown" v-bind="{ ...panelProps, ...ptm('panel') }">
                     <span
                         ref="firstHiddenFocusableElementOnOverlay"
@@ -67,6 +67,7 @@
                     <slot name="header" :value="d_value" :options="options"></slot>
                     <div :class="cx('treeContainer')" :style="{ 'max-height': scrollHeight }" v-bind="ptm('treeContainer')">
                         <TSTree
+                            v-if="options && options.length > 0"
                             ref="tree"
                             :id="listId"
                             :value="options"
@@ -88,6 +89,7 @@
                             @node-collapse="$emit('node-collapse', $event)"
                             @node-select="onNodeSelect"
                             @node-unselect="onNodeUnselect"
+                            @filter="$emit('filter', $event)"
                             @click.stop
                             :level="0"
                             :unstyled="unstyled"
@@ -146,7 +148,7 @@ export default {
     name: 'TreeSelect',
     extends: BaseTreeSelect,
     inheritAttrs: false,
-    emits: ['before-show', 'before-hide', 'change', 'show', 'hide', 'node-select', 'node-unselect', 'node-expand', 'node-collapse', 'focus', 'blur', 'update:expandedKeys'],
+    emits: ['before-show', 'before-hide', 'change', 'show', 'hide', 'node-select', 'node-unselect', 'node-expand', 'node-collapse', 'filter', 'focus', 'blur', 'update:expandedKeys'],
     inject: {
         $pcFluid: { default: null }
     },
@@ -453,17 +455,17 @@ export default {
         fillNodeMap(node, nodeMap) {
             nodeMap[node.key] = node;
 
-            if (node.children?.length) {
+            if (node.children && node.children.length > 0) {
                 node.children.forEach((children) => this.fillNodeMap(children, nodeMap));
             }
         },
         isSelected(node, keys) {
-            return this.selectionMode === 'checkbox' ? keys[node.key] && keys[node.key].checked : keys[node.key];
+            return this.selectionMode === 'checkbox' ? keys[node?.key] && keys[node?.key].checked : keys[node?.key];
         },
         updateTreeState() {
             let keys = { ...this.d_value };
 
-            if (keys && this.options) {
+            if (keys && this.options && this.options.length > 0) {
                 this.updateTreeBranchState(null, null, keys);
             }
         },
@@ -517,7 +519,7 @@ export default {
         selectedNodes() {
             let selectedNodes = [];
 
-            if (this.d_value && this.options) {
+            if (this.d_value && this.options && this.options.length > 0) {
                 Object.keys(this.d_value).forEach((key) => {
                     const node = this.nodeMap[key];
 
@@ -564,7 +566,7 @@ export default {
             return isEmpty(this.fluid) ? !!this.$pcFluid : this.fluid;
         },
         isClearIconVisible() {
-            return this.showClear && this.d_value != null && isNotEmpty(this.options);
+            return this.showClear && this.d_value != null && isNotEmpty(this.options) && !this.disabled && !this.loading;
         }
     },
     components: {

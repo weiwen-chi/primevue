@@ -1,6 +1,6 @@
 <template>
     <Portal :appendTo="appendTo" :disabled="!popup">
-        <transition name="p-connected-overlay" @enter="onEnter" @after-enter="onAfterEnter" @leave="onLeave" @after-leave="onAfterLeave" v-bind="ptm('transition')">
+        <transition name="p-anchored-overlay" @enter="onEnter" @after-enter="onAfterEnter" @leave="onLeave" @after-leave="onAfterLeave" v-bind="ptm('transition')">
             <div v-if="visible" :ref="containerRef" :id="$id" :class="cx('root')" @click="onOverlayClick" v-bind="ptmi('root')">
                 <div v-if="$slots.start" :class="cx('start')" v-bind="ptm('start')">
                     <slot name="start"></slot>
@@ -142,7 +142,7 @@ export default {
             if (this.popup) {
                 this.$emit('before-show');
                 this.visible = true;
-                this.target = this.target || event.currentTarget;
+                this.target = event.currentTarget;
                 this.relatedTarget = event.relatedTarget || null;
             }
 
@@ -159,6 +159,7 @@ export default {
 
             isFocus && focus(this.relatedTarget || this.target || this.menubar);
             this.dirty = false;
+            this.target = null;
         },
         onFocus(event) {
             this.focused = true;
@@ -415,7 +416,7 @@ export default {
         },
         onEnter(el) {
             if (this.autoZIndex) {
-                ZIndex.set('menu', el, this.baseZIndex + this.$primevue.config.zIndex.menu);
+                ZIndex.set('menu', el, this.baseZIndex || this.$primevue.config.zIndex.menu);
             }
 
             addStyle(el, { position: 'absolute', top: '0' });

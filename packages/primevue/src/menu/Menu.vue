@@ -1,6 +1,6 @@
 <template>
     <Portal :appendTo="appendTo" :disabled="!popup">
-        <transition name="p-connected-overlay" @enter="onEnter" @leave="onLeave" @after-leave="onAfterLeave" v-bind="ptm('transition')">
+        <transition name="p-anchored-overlay" @enter="onEnter" @leave="onLeave" @after-leave="onAfterLeave" v-bind="ptm('transition')">
             <div v-if="popup ? overlayVisible : true" :ref="containerRef" :id="$id" :class="cx('root')" @click="onOverlayClick" :data-p="dataP" v-bind="ptmi('root')">
                 <div v-if="$slots.start" :class="cx('start')" v-bind="ptm('start')">
                     <slot name="start"></slot>
@@ -124,11 +124,11 @@ export default {
                 return;
             }
 
-            if (this.overlayVisible) this.hide();
-
             if (item.command) {
                 item.command(event);
             }
+
+            if (this.overlayVisible) this.hide();
 
             if (!this.popup && this.focusedOptionIndex !== event.id) {
                 this.focusedOptionIndex = event.id;
@@ -267,7 +267,7 @@ export default {
             this.bindScrollListener();
 
             if (this.autoZIndex) {
-                ZIndex.set('menu', el, this.baseZIndex + this.$primevue.config.zIndex.menu);
+                ZIndex.set('menu', el, this.baseZIndex || this.$primevue.config.zIndex.menu);
             }
 
             if (this.popup) {

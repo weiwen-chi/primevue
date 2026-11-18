@@ -1,14 +1,16 @@
 <template>
     <div :class="cx('root')" data-scrollselectors=".p-datatable-wrapper" :data-p="dataP" v-bind="ptmi('root')">
         <slot></slot>
-        <div v-if="loading" :class="cx('mask')" v-bind="ptm('mask')">
-            <slot v-if="$slots.loading" name="loading"></slot>
-            <template v-else>
-                <component v-if="$slots.loadingicon" :is="$slots.loadingicon" :class="cx('loadingIcon')" />
-                <i v-else-if="loadingIcon" :class="[cx('loadingIcon'), 'pi-spin', loadingIcon]" v-bind="ptm('loadingIcon')" />
-                <SpinnerIcon v-else spin :class="cx('loadingIcon')" v-bind="ptm('loadingIcon')" />
-            </template>
-        </div>
+        <transition name="p-overlay-mask">
+            <div v-if="loading" :class="cx('mask')" v-bind="ptm('mask')">
+                <slot v-if="$slots.loading" name="loading"></slot>
+                <template v-else>
+                    <component v-if="$slots.loadingicon" :is="$slots.loadingicon" :class="cx('loadingIcon')" />
+                    <i v-else-if="loadingIcon" :class="[cx('loadingIcon'), 'pi-spin', loadingIcon]" v-bind="ptm('loadingIcon')" />
+                    <SpinnerIcon v-else spin :class="cx('loadingIcon')" v-bind="ptm('loadingIcon')" />
+                </template>
+            </div>
+        </transition>
         <div v-if="$slots.header" :class="cx('header')" v-bind="ptm('header')">
             <slot name="header"></slot>
         </div>
@@ -397,12 +399,13 @@ export default {
         'update:editingRows',
         'row-edit-init',
         'row-edit-save',
-        'row-edit-cancel'
+        'row-edit-cancel',
+        'update:totalRecords'
     ],
     provide() {
         return {
-            $columns: this.d_columns.get(),
-            $columnGroups: this.d_columnGroups.get()
+            $columns: this.d_columns,
+            $columnGroups: this.d_columnGroups
         };
     },
     data() {
@@ -481,6 +484,9 @@ export default {
             handler: function (newValue) {
                 this.d_filters = this.cloneFilters(newValue);
             }
+        },
+        totalRecordsLength(newValue) {
+            this.$emit('update:totalRecords', newValue);
         }
     },
     mounted() {
@@ -1758,10 +1764,14 @@ export default {
             }
 
             if (Object.keys(state).length) {
-                storage.setItem(this.stateKey, JSON.stringify(state));
-            }
+                const serializedState = JSON.stringify(state);
 
-            this.$emit('state-save', state);
+                if (serializedState !== this._lastSavedState) {
+                    storage.setItem(this.stateKey, serializedState);
+                    this._lastSavedState = serializedState;
+                    this.$emit('state-save', state);
+                }
+            }
         },
         restoreState() {
             const storage = this.getStorage();
@@ -2155,7 +2165,10 @@ export default {
         dataP() {
             return cn({
                 scrollable: this.scrollable,
-                'flex-scrollable': this.scrollable && this.scrollHeight === 'flex'
+                'flex-scrollable': this.scrollable && this.scrollHeight === 'flex',
+                [this.size]: this.size,
+                loading: this.loading,
+                empty: this.empty
             });
         }
     },

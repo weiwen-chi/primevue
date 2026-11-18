@@ -1,4 +1,4 @@
-import { addClass, hasClass, removeClass } from '@primeuix/utils/dom';
+import { addClass, getTargetElement, hasClass, isElement, removeClass } from '@primeuix/utils/dom';
 import BaseStyleClass from './BaseStyleClass';
 
 const StyleClass = BaseStyleClass.extend('styleclass', {
@@ -12,7 +12,7 @@ const StyleClass = BaseStyleClass.extend('styleclass', {
     },
     methods: {
         bind(el, binding) {
-            const target = this.resolveTarget(el, binding);
+            const target = getTargetElement(binding.value.selector, el);
 
             this.$el = target;
 
@@ -34,12 +34,13 @@ const StyleClass = BaseStyleClass.extend('styleclass', {
                 el.$_pstyleclass_clicklistener = null;
             }
 
+            this.unbindResizeListener(el);
             this.unbindDocumentListener(el);
         },
         enter(target, el, binding) {
             if (binding.value.enterActiveClass) {
-                if (!target.$_pstyleclass_animating) {
-                    target.$_pstyleclass_animating = true;
+                if (!target.$_pstyleclass_enter_animating) {
+                    target.$_pstyleclass_enter_animating = true;
 
                     if (binding.value.enterActiveClass.includes('slidedown')) {
                         target.style.height = '0px';
@@ -63,15 +64,22 @@ const StyleClass = BaseStyleClass.extend('styleclass', {
                         }
 
                         target.removeEventListener('animationend', target.$p_styleclass_enterlistener);
+                        target.removeEventListener('animationcancel', target.$p_styleclass_entercancellistener);
 
                         if (binding.value.enterActiveClass.includes('slidedown')) {
                             target.style.maxHeight = '';
                         }
 
-                        target.$_pstyleclass_animating = false;
+                        target.$_pstyleclass_enter_animating = false;
+                    };
+
+                    target.$p_styleclass_entercancellistener = () => {
+                        target.removeEventListener('animationcancel', target.$p_styleclass_entercancellistener);
+                        target.$_pstyleclass_enter_animating = false;
                     };
 
                     target.addEventListener('animationend', target.$p_styleclass_enterlistener);
+                    target.addEventListener('animationcancel', target.$p_styleclass_entercancellistener);
                 }
             } else {
                 if (binding.value.enterFromClass) {
@@ -86,11 +94,15 @@ const StyleClass = BaseStyleClass.extend('styleclass', {
             if (binding.value.hideOnOutsideClick) {
                 this.bindDocumentListener(target, el, binding);
             }
+
+            if (binding.value.hideOnResize) {
+                this.bindResizeListener(target, el, binding);
+            }
         },
         leave(target, binding) {
             if (binding.value.leaveActiveClass) {
-                if (!target.$_pstyleclass_animating) {
-                    target.$_pstyleclass_animating = true;
+                if (!target.$_pstyleclass_leave_animating) {
+                    target.$_pstyleclass_leave_animating = true;
                     addClass(target, binding.value.leaveActiveClass);
 
                     if (binding.value.leaveFromClass) {
@@ -105,10 +117,17 @@ const StyleClass = BaseStyleClass.extend('styleclass', {
                         }
 
                         target.removeEventListener('animationend', target.$p_styleclass_leavelistener);
-                        target.$_pstyleclass_animating = false;
+                        target.removeEventListener('animationcancel', target.$p_styleclass_leavecancellistener);
+                        target.$_pstyleclass_leave_animating = false;
+                    };
+
+                    target.$p_styleclass_leavecancellistener = () => {
+                        target.removeEventListener('animationcancel', target.$p_styleclass_leavecancellistener);
+                        target.$_pstyleclass_leave_animating = false;
                     };
 
                     target.addEventListener('animationend', target.$p_styleclass_leavelistener);
+                    target.addEventListener('animationcancel', target.$p_styleclass_leavecancellistener);
                 }
             } else {
                 if (binding.value.leaveFromClass) {
@@ -123,23 +142,9 @@ const StyleClass = BaseStyleClass.extend('styleclass', {
             if (binding.value.hideOnOutsideClick) {
                 this.unbindDocumentListener(target);
             }
-        },
-        resolveTarget(el, binding) {
-            switch (binding.value.selector) {
-                case '@next':
-                    return el.nextElementSibling;
 
-                case '@prev':
-                    return el.previousElementSibling;
-
-                case '@parent':
-                    return el.parentElement;
-
-                case '@grandparent':
-                    return el.parentElement.parentElement;
-
-                default:
-                    return document.querySelector(binding.value.selector);
+            if (binding.value.hideOnResize) {
+                this.unbindResizeListener(target);
             }
         },
         bindDocumentListener(target, el, binding) {
@@ -159,6 +164,62 @@ const StyleClass = BaseStyleClass.extend('styleclass', {
             if (target.$p_styleclass_documentlistener) {
                 target.ownerDocument.removeEventListener('click', target.$p_styleclass_documentlistener);
                 target.$p_styleclass_documentlistener = null;
+            }
+        },
+        bindResizeListener(target, el, binding) {
+            target.$p_styleclass_resizeselector = getTargetElement(binding.value.resizeSelector ?? 'window');
+
+            if (isElement(target.$p_styleclass_resizeselector)) {
+                this.bindElementResizeListener(target, binding);
+            } else {
+                this.bindWindowResizeListener(target, binding);
+            }
+        },
+        unbindResizeListener(target) {
+            this.unbindWindowResizeListener(target);
+            this.unbindElementResizeListener(target);
+        },
+        bindWindowResizeListener(target, binding) {
+            if (!target.$p_styleclass_windowresizelistener) {
+                target.$p_styleclass_windowresizelistener = () => {
+                    if (!this.isVisible(target)) {
+                        this.unbindWindowResizeListener(target);
+                    } else {
+                        this.leave(target, binding);
+                    }
+                };
+
+                target.ownerDocument.defaultView.addEventListener('resize', target.$p_styleclass_windowresizelistener);
+            }
+        },
+        unbindWindowResizeListener(target) {
+            if (target.$p_styleclass_windowresizelistener) {
+                target.ownerDocument.defaultView.removeEventListener('resize', target.$p_styleclass_windowresizelistener);
+                target.$p_styleclass_windowresizelistener = null;
+            }
+        },
+        bindElementResizeListener(target, binding) {
+            if (!target.$p_styleclass_resizeobserver && target.$p_styleclass_resizeselector) {
+                let isFirstResize = true;
+
+                target.$p_styleclass_resizeobserver = new ResizeObserver(() => {
+                    if (isFirstResize) {
+                        isFirstResize = false;
+
+                        return;
+                    }
+
+                    if (this.isVisible(target)) {
+                        this.leave(target, binding);
+                    }
+                });
+                target.$p_styleclass_resizeobserver.observe(target.$p_styleclass_resizeselector);
+            }
+        },
+        unbindElementResizeListener(target) {
+            if (target.$p_styleclass_resizeobserver) {
+                target.$p_styleclass_resizeobserver.disconnect();
+                target.$p_styleclass_resizeobserver = null;
             }
         },
         isVisible(target) {

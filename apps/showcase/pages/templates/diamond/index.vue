@@ -30,6 +30,7 @@ export default {
                                 description: 'An amazing application template for Vue based on Vite with light-dark modes with 8 surface colors, seven menu layouts, various menu themes, sample apps, ready to use template pages and 3 presets.',
                                 liveHref: 'https://diamond.primevue.org',
                                 docHref: 'https://diamond.primevue.org/documentation',
+                                storeHref: 'https://primeui.store/templates/vue/diamond',
                                 pattern: {
                                     className: 'select-none absolute z-[6] w-[62rem] h-[44rem] -top-8 -left-36 md:-left-12',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/diamond/diamond-hero-pattern.png'
@@ -176,7 +177,7 @@ export default {
                 template and requires a separate purchase.`,
                             description4: `
                     Diamond uses Figma as the design tool. It will be possible to download the Figma file after your purchase. You can
-                <a href="https://www.figma.com/design/3BgdXCQjva5nUEO8OidU1B/Preview-%7C-Diamond?node-id=0-1&t=KdfljgRtYLzFPfKL-1 target="_blank" rel="noopener noreferrer"">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the Diamond Figma file as they
+                <a href="https://www.figma.com/design/PUKCTdB0YbqY2NVRGRgdEB/Preview-%7C%C2%A0Diamond-%7C%C2%A03.0.0?node-id=0-1&t=4iPjWVN9cs4g6XTA-1 target="_blank" rel="noopener noreferrer"">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the Diamond Figma file as they
                 are available in <PrimeVueNuxtLink to="/uikit">PrimeOne for Figma</PrimeVueNuxtLink> only.`
                         }
                     },

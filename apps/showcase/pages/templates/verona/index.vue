@@ -25,11 +25,12 @@ export default {
                         props: {
                             templateHeroData: {
                                 logo: markRaw(VeronaLogo),
-                                description: 'Prepare to be amazed by the remastered Verona for PrimeVue featuring a new gorgeous dark mode for the entire layout, 2 menu modes, reusable css widgets, utilities, modern icons and many more.',
+                                description: 'Prepare to be amazed by the remastered Verona for PrimeVue featuring a new gorgeous dark mode for the entire layout, 4 menu modes, reusable css widgets, utilities, modern icons and many more.',
                                 dashboard1: 'https://primefaces.org/cdn/primevue/images/templates/verona/verona-hero-dashboard1.png',
                                 dashboard2: 'https://primefaces.org/cdn/primevue/images/templates/verona/verona-hero-dashboard2.png',
                                 liveHref: 'https://verona.primevue.org/',
                                 docHref: 'https://verona.primevue.org/documentation',
+                                storeHref: 'https://primeui.store/templates/vue/verona',
                                 pattern: {
                                     className: 'select-none absolute z-[6] opacity-90 w-[110rem] h-auto bottom-80 left-0 md:-bottom-8 md:-left-4',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/verona/verona-hero-pattern.png'
@@ -75,7 +76,7 @@ export default {
                                 {
                                     id: 2,
                                     title: 'Component Themes',
-                                    description: 'Verona offers 10 built-in component themes with dark and light options. You are also free to create your own theme by defining couple SASS variables.',
+                                    description: '17 built-in theme colors with the power of 3 presets: Aura, Lara and Nora.',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/verona/features-animation-component-themes.png'
                                 },
                                 {
@@ -110,7 +111,7 @@ export default {
                                 {
                                     id: 4,
                                     title: 'Menu Themes',
-                                    description: 'Verona offers 10 special layout themes featuring gorgeous gradients.',
+                                    description: 'Verona offers 17 special layout themes featuring gorgeous gradients.',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/verona/features-animation-orientations.png'
                                 }
                             ]
@@ -160,7 +161,7 @@ export default {
                     Fully compatible with <a href="https://primeblocks.org/">PrimeBlocks</a>, choose from the wide range of blocks and customize the way you like. Note that PrimeBlocks is not included in the
                 template and requires a separate purchase.`,
                             description4: `Verona uses Figma as the design tool. It will be possible to download the Figma file after your purchase. You can
-                <a href="https://www.figma.com/file/PgQXX4HXMPeCkT74tGajod/Preview-%7C-Verona-2022?node-id=1303%3A750" target="_blank" rel="noopener noreferrer">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the Verona Figma file as they
+                <a href="https://www.figma.com/design/9V43wXgKud8vXF9ZkbF83s/Preview-%7C-Verona-%7C%C2%A02.0.0?node-id=1303-749&t=0tlndOYlFeA9OaVc-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the Verona Figma file as they
                 are available in <PrimeVueNuxtLink to="/uikit">PrimeOne for Figma</PrimeVueNuxtLink> only.`
                         }
                     },

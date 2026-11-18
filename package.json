@@ -1,6 +1,6 @@
 {
     "name": "@primevue/monorepo",
-    "version": "4.3.7",
+    "version": "4.5.5",
     "author": "PrimeTek Informatics",
     "homepage": "https://primevue.org/",
     "repository": {
@@ -21,7 +21,7 @@
         "release:rc": "pnpm run build && pnpm recursive publish --filter './packages/*' --no-git-checks --report-summary --tag rc",
         "build": "NODE_ENV=production pnpm run build:check && pnpm run build:packages",
         "build:check": "pnpm run format:check && pnpm run security:check",
-        "build:packages": "pnpm run build:metadata && pnpm run build:resolver && pnpm run build:core && pnpm run build:lib && pnpm run build:module && pnpm run build:themes && pnpm run build:icons && pnpm run build:forms && pnpm run build:apps",
+        "build:packages": "pnpm run build:metadata && pnpm run build:resolver && pnpm run build:core && pnpm run build:lib && pnpm run build:module && pnpm run build:themes && pnpm run build:icons && pnpm run build:mcp && pnpm run build:forms && pnpm run build:apps",
         "build:apps": "pnpm run build:showcase && pnpm run build:volt",
         "build:resolver": "pnpm --filter auto-import-resolver build",
         "build:core": "pnpm --filter core build",
@@ -30,8 +30,10 @@
         "build:lib": "pnpm --filter primevue build",
         "build:themes": "pnpm --filter themes build",
         "build:icons": "pnpm --filter icons build",
+        "build:mcp": "pnpm --filter mcp build",
         "build:forms": "pnpm --filter forms build",
         "build:showcase": "pnpm --filter showcase build",
+        "build:llm": "pnpm --filter showcase build:llmdocs",
         "build:volt": "pnpm --filter volt build",
         "build:apidoc": "pnpm --filter themes build:tokens && pnpm --filter showcase build:apidoc",
         "dev": "pnpm --filter showcase dev",
@@ -43,8 +45,8 @@
         "typecheck": "pnpm --filter volt typecheck",
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
-        "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
-        "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\"",
+        "format": "prettier --write \"**/*.{js,mjs,jsx,ts,tsx,json,md}\"",
+        "format:check": "prettier --check \"**/*.{js,mjs,jsx,ts,tsx,json,md}\"",
         "test:unit": "pnpm --filter primevue test:unit"
     },
     "devDependencies": {

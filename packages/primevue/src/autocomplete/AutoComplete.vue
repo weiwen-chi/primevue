@@ -23,7 +23,7 @@
             aria-haspopup="listbox"
             aria-autocomplete="list"
             :aria-expanded="overlayVisible"
-            :aria-controls="panelId"
+            :aria-controls="overlayVisible ? panelId : undefined"
             :aria-activedescendant="focused ? focusedOptionId : undefined"
             @focus="onFocus"
             @blur="onBlur"
@@ -34,6 +34,9 @@
             :data-p-has-dropdown="dropdown"
             :pt="ptm('pcInputText')"
         />
+        <slot v-if="isClearIconVisible" name="clearicon" :class="cx('clearIcon')" :clearCallback="onClearClick">
+            <TimesIcon :class="[cx('clearIcon')]" @click="onClearClick" v-bind="ptm('clearIcon')" />
+        </slot>
         <ul
             v-if="multiple"
             ref="multiContainer"
@@ -110,7 +113,7 @@
         </ul>
         <slot v-if="searching || loading" :class="cx('loader')" :name="$slots.loader ? 'loader' : 'loadingicon'">
             <i v-if="loader || loadingIcon" :class="['pi-spin', cx('loader'), loader, loadingIcon]" aria-hidden="true" :data-p-has-dropdown="dropdown" v-bind="ptm('loader')" />
-            <SpinnerIcon v-else :class="cx('loader')" spin aria-hidden="true" :data-p-has-dropdown="dropdown" v-bind="ptm('loader')" />
+            <SpinnerIcon v-else-if="loading" :class="cx('loader')" spin aria-hidden="true" :data-p-has-dropdown="dropdown" v-bind="ptm('loader')" />
         </slot>
         <slot :name="$slots.dropdown ? 'dropdown' : 'dropdownbutton'" :toggleCallback="(event) => onDropdownClick(event)">
             <button
@@ -134,7 +137,7 @@
             {{ searchResultMessageText }}
         </span>
         <Portal :appendTo="appendTo">
-            <transition name="p-connected-overlay" @enter="onOverlayEnter" @after-enter="onOverlayAfterEnter" @leave="onOverlayLeave" @after-leave="onOverlayAfterLeave" v-bind="ptm('transition')">
+            <transition name="p-anchored-overlay" @enter="onOverlayEnter" @after-enter="onOverlayAfterEnter" @leave="onOverlayLeave" @after-leave="onOverlayAfterLeave" v-bind="ptm('transition')">
                 <div
                     v-if="overlayVisible"
                     :ref="overlayRef"
@@ -212,6 +215,7 @@ import { ZIndex } from '@primeuix/utils/zindex';
 import { ConnectedOverlayScrollHandler } from '@primevue/core/utils';
 import ChevronDownIcon from '@primevue/icons/chevrondown';
 import SpinnerIcon from '@primevue/icons/spinner';
+import TimesIcon from '@primevue/icons/times';
 import Chip from 'primevue/chip';
 import InputText from 'primevue/inputtext';
 import OverlayEventBus from 'primevue/overlayeventbus';
@@ -453,6 +457,7 @@ export default {
                 }
 
                 if (query.length === 0) {
+                    this.searching = false;
                     this.hide();
                     this.$emit('clear');
                 } else {
@@ -463,6 +468,7 @@ export default {
                             this.search(event, query, 'input');
                         }, this.delay);
                     } else {
+                        this.searching = false;
                         this.hide();
                     }
                 }
@@ -592,10 +598,15 @@ export default {
                 const value = this.visibleOptions
                     .slice(rangeStart, rangeEnd + 1)
                     .filter((option) => this.isValidOption(option))
+                    .filter((option) => !this.isSelected(option))
                     .map((option) => this.getOptionValue(option));
 
-                this.updateModel(event, value);
+                this.updateModel(event, [...(this.d_value || []), ...value]);
             }
+        },
+        onClearClick(event) {
+            this.updateModel(event, null);
+            this.$emit('clear');
         },
         onOverlayClick(event) {
             OverlayEventBus.emit('overlay-click', {
@@ -727,10 +738,11 @@ export default {
                     if (this.focusedOptionIndex !== -1) {
                         if (this.multiple && event.shiftKey) {
                             this.onOptionSelectRange(event, this.focusedOptionIndex);
-                            event.preventDefault();
                         } else {
                             this.onOptionSelect(event, this.visibleOptions[this.focusedOptionIndex]);
                         }
+
+                        event.preventDefault();
                     }
 
                     this.hide();
@@ -802,7 +814,8 @@ export default {
 
             this.$emit('show');
         },
-        onOverlayLeave() {
+        onOverlayLeave(el) {
+            el.style.pointerEvents = 'none';
             this.unbindOutsideClickListener();
             this.unbindScrollListener();
             this.unbindResizeListener();
@@ -1084,6 +1097,9 @@ export default {
         focusedMultipleOptionId() {
             return this.focusedMultipleOptionIndex !== -1 ? `${this.$id}_multiple_option_${this.focusedMultipleOptionIndex}` : null;
         },
+        isClearIconVisible() {
+            return this.showClear && this.$filled && !this.disabled && !this.loading;
+        },
         ariaSetSize() {
             return this.visibleOptions.filter((option) => !this.isOptionGroup(option)).length;
         },
@@ -1119,9 +1135,10 @@ export default {
         InputText,
         VirtualScroller,
         Portal,
+        Chip,
         ChevronDownIcon,
         SpinnerIcon,
-        Chip
+        TimesIcon
     },
     directives: {
         ripple: Ripple

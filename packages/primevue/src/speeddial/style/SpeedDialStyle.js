@@ -29,15 +29,15 @@ const classes = {
         }
     ],
     list: 'p-speeddial-list',
-    item: 'p-speeddial-item',
+    item: ({ item }) => [
+        'p-speeddial-item',
+        {
+            'p-disabled': item && (typeof item.disabled === 'function' ? item.disabled() : item.disabled)
+        }
+    ],
     action: 'p-speeddial-action',
     actionIcon: 'p-speeddial-action-icon',
-    mask: ({ instance }) => [
-        'p-speeddial-mask',
-        {
-            'p-speeddial-mask-visible': instance.d_visible
-        }
-    ]
+    mask: 'p-speeddial-mask p-overlay-mask'
 };
 
 export default BaseStyle.extend({

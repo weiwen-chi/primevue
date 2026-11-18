@@ -1,6 +1,6 @@
 {
     "name": "@primevue/themes",
-    "version": "4.3.7",
+    "version": "4.5.5",
     "author": "PrimeTek Informatics",
     "description": "",
     "homepage": "https://primevue.org/",
@@ -13,6 +13,7 @@
     "bugs": {
         "url": "https://github.com/primefaces/primevue/issues"
     },
+    "private": true,
     "main": "./src/index.js",
     "module": "./src/index.js",
     "types": "./src/index.d.ts",

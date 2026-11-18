@@ -28,8 +28,9 @@ export default {
                                 dashboard1: 'https://primefaces.org/cdn/primevue/images/templates/freya/freya-hero-dashboard1.png',
                                 dashboard2: 'https://primefaces.org/cdn/primevue/images/templates/freya/freya-hero-dashboard2.png',
                                 description: 'Freya is a modern admin template for developers and IT professionals. It comes with a huge collection of reusable UI components and dozens of built-in layouts for various purposes.',
-                                liveHref: 'https://www.primefaces.org/freya-vue/',
+                                liveHref: 'https://freya.primevue.org',
                                 docHref: 'https://freya.primevue.org/documentation',
+                                storeHref: 'https://primeui.store/templates/vue/freya',
                                 pattern: {
                                     className: 'select-none absolute z-[6] w-[58rem] md:w-[50rem] h-auto top-12 md:top-32 -left-24 md:-left-12 opacity-75',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/freya/freya-hero-pattern.png'
@@ -75,7 +76,7 @@ export default {
                                 {
                                     id: 2,
                                     title: 'Component Themes',
-                                    description: 'Freya offers 16 built-in component themes with dark and light options. Also if you wanna create your own theme you can do it by just defining couple SASS variables.',
+                                    description: '17 built-in theme colors with the power of 2 presets: Aura and Lara.',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/freya/features-animation-component-themes.png'
                                 },
                                 {
@@ -170,7 +171,7 @@ export default {
                 template and requires a separate purchase.`,
                             description4: `
                                     Freya uses Figma as the design tool. It will be possible to download the Figma file after your purchase. You can
-                <a href="https://www.figma.com/file/eYBoRNff6GPTlrgYZaMStp/Preview-%7C-Freya-2022?node-id=0%3A1&t=MGAABDlOnz4QBcEk-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the Freya Figma
+                <a href="https://www.figma.com/design/Mv0xRaU4gDrWAY6uW2vhim/Preview-%7C-Freya-%7C%C2%A03.0.0?node-id=1303-749&t=7vBqlx6EvhdjJgec-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a> before the purchase. Note that PrimeVue UI components are excluded from the Freya Figma
                 file as they are available in <PrimeVueNuxtLink to="/uikit">PrimeOne for Figma</PrimeVueNuxtLink> only.`
                         }
                     },

@@ -8,8 +8,13 @@
         <div class="doc">
             <div class="doc-main">
                 <div class="doc-intro">
-                    <h1>Styled Mode</h1>
-                    <p>Choose from a variety of pre-styled themes or develop your own.</p>
+                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                        <div class="flex-1">
+                            <h1>Styled Mode</h1>
+                            <p>Choose from a variety of pre-styled themes or develop your own.</p>
+                        </div>
+                        <DocCopyMarkdown docType="page" class="flex-shrink-0" />
+                    </div>
                 </div>
                 <DocSections :docs="docs" />
             </div>
@@ -19,6 +24,7 @@
 </template>
 
 <script>
+import DocCopyMarkdown from '@/components/doc/DocCopyMarkdown.vue';
 import ArchitectureDoc from '@/doc/theming/styled/ArchitectureDoc.vue';
 import CSSModulesDoc from '@/doc/theming/styled/CSSModulesDoc.vue';
 import ColorsDoc from '@/doc/theming/styled/ColorsDoc.vue';
@@ -36,6 +42,7 @@ import DefinePresetDoc from '@/doc/theming/styled/customization/DefinePresetDoc.
 import ExtendDoc from '@/doc/theming/styled/customization/ExtendDoc.vue';
 import FocusRingDoc from '@/doc/theming/styled/customization/FocusRingDoc.vue';
 import FontDoc from '@/doc/theming/styled/customization/FontDoc.vue';
+import ColorSchemeDoc from '@/doc/theming/styled/customization/ColorSchemeDoc.vue';
 import FormsDoc from '@/doc/theming/styled/customization/FormsDoc.vue';
 import NoirDoc from '@/doc/theming/styled/customization/NoirDoc.vue';
 import PrimaryDoc from '@/doc/theming/styled/customization/PrimaryDoc.vue';
@@ -48,6 +55,7 @@ import UpdateSurfacePaletteDoc from '@/doc/theming/styled/utils/UpdateSurfacePal
 import UsePresetDoc from '@/doc/theming/styled/utils/UsePresetDoc.vue';
 
 export default {
+    components: { DocCopyMarkdown },
     data() {
         return {
             docs: [
@@ -100,6 +108,11 @@ export default {
                             id: 'definepreset',
                             label: 'definePreset',
                             component: DefinePresetDoc
+                        },
+                        {
+                            id: 'colorscheme',
+                            label: 'Color Scheme',
+                            component: ColorSchemeDoc
                         },
                         {
                             id: 'primary',

@@ -1,7 +1,6 @@
 {
-    "id": 86,
-    "content": "PrimeBlocks with Tailwind v4 is now live!🚀",
+    "id": 97,
+    "content": "Introducing PrimeOne UI Kit v4 with Figma Native Variables",
     "linkText": "Learn More",
-    "linkHref": "https://primeblocks.org",
-    "target": "_blank"
+    "to": "/uikit"
 }

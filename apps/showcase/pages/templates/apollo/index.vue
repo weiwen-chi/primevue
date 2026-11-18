@@ -27,9 +27,10 @@ export default {
                                 logo: markRaw(ApolloLogo),
                                 dashboard1: 'https://primefaces.org/cdn/primevue/images/templates/apollo/apollo-hero-dashboard1.png',
                                 dashboard2: 'https://primefaces.org/cdn/primevue/images/templates/apollo/apollo-hero-dashboard2.png',
-                                description: 'Application template for Vue based on Vite with light-dim-dark modes, four menu layouts, various menu themes, sample apps, ready to use template pages and 24 PrimeVue themes.',
+                                description: 'A spectacular application template for Vue based on Vite featuring light-dark modes with 8 surface colors, 7 menu layouts, various menu themes, sample apps, ready to use template pages and 3 presets.',
                                 liveHref: 'https://apollo.primevue.org',
                                 docHref: 'https://apollo.primevue.org/documentation',
+                                storeHref: 'https://primeui.store/templates/vue/apollo',
                                 pattern: {
                                     className: 'select-none absolute md:bottom-0 bottom-80 left-0 z-[6] md:w-[95rem] h-auto w-[90rem] opacity-60',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/apollo/apollo-hero-pattern.png'
@@ -75,7 +76,7 @@ export default {
                                 {
                                     id: 2,
                                     title: 'Component Themes',
-                                    description: 'Apollo offers 24 built-in component themes and creating your own theme is a matter of defining couple of sass variables.',
+                                    description: '17 built-in theme colors with the power of 3 presets: Aura, Lara and Nora.',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/apollo/features-animation-component-themes.png'
                                 },
                                 {
@@ -158,8 +159,8 @@ export default {
                         name: markRaw(TemplateConfiguration),
                         props: {
                             configurationData: {
-                                title: 'Vue based on Vite and Nuxt',
-                                description: 'Apollo is powered by Vite and Nuxt to get started in no time following the best practices.'
+                                title: 'Vue based on Vite',
+                                description: 'Apollo is powered by Vite to get started in no time following the best practices.'
                             }
                         }
                     },
@@ -199,7 +200,7 @@ export default {
                     template and requires a separate purchase.`,
                             description4: `
                     Apollo uses Figma as the design tool. It will be possible to download the Figma file after your purchase. You can
-                    <a href="https://www.figma.com/file/zQOW0XBXdCTqODzEOqwBtt/Preview-%7C-Apollo-2022?node-id=335%3A21768&t=urYI89V3PLNAZEJG-1/" target="_blank" rel="noopener noreferrer">preview the Figma file</a>
+                    <a href="https://www.figma.com/design/p2G3F7XAaZZrlbfLY30P8s/Preview-%7C-Apollo-%7C%C2%A02.0.0?node-id=138-5712&t=aL4nSTPYv133sC0f-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a>
                     before the purchase. Note that PrimeVue UI components are excluded from the Apollo Figma file as they are available in
                     <PrimeVueNuxtLink to="/uikit">PrimeOne for Figma</PrimeVueNuxtLink> only.`
                         }

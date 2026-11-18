@@ -1,11 +1,13 @@
 <template>
     <template v-if="isVertical">
         <template v-if="!asChild">
-            <transition name="p-toggleable-content" v-bind="ptm('transition')">
+            <transition name="p-collapsible" v-bind="ptm('transition')">
                 <component v-show="active" :is="as" :id="id" :class="cx('root')" role="tabpanel" :aria-controls="ariaControls" :data-p="dataP" v-bind="getPTOptions('root')">
-                    <StepperSeparator v-if="isSeparatorVisible" :data-p="dataP" />
-                    <div :class="cx('content')" :data-p="dataP" v-bind="getPTOptions('content')">
-                        <slot :active="active" :activateCallback="(val) => updateValue(val)" />
+                    <div :class="cx('contentWrapper')" v-bind="ptm('contentWrapper', ptParams)">
+                        <StepperSeparator v-if="isSeparatorVisible" :data-p="dataP" />
+                        <div :class="cx('content')" :data-p="dataP" v-bind="getPTOptions('content')">
+                            <slot :active="active" :activateCallback="(val) => updateValue(val)" />
+                        </div>
                     </div>
                 </component>
             </transition>
@@ -44,15 +46,21 @@ export default {
         };
     },
     mounted() {
-        if (this.$el) {
-            let stepElements = find(this.$pcStepper.$el, '[data-pc-name="step"]');
-            let stepPanelEl = findSingle(this.isVertical ? this.$pcStepItem?.$el : this.$pcStepList?.$el, '[data-pc-name="step"]');
-            let stepPanelIndex = findIndexInList(stepPanelEl, stepElements);
-
-            this.isSeparatorVisible = this.isVertical && stepPanelIndex !== stepElements.length - 1;
-        }
+        this.updateSeparator();
+    },
+    updated() {
+        this.updateSeparator();
     },
     methods: {
+        updateSeparator() {
+            if (this.$el) {
+                let stepElements = find(this.$pcStepper.$el, '[data-pc-name="step"]');
+                let stepPanelEl = findSingle(this.isVertical ? this.$pcStepItem?.$el : this.$pcStepList?.$el, '[data-pc-name="step"]');
+                let stepPanelIndex = findIndexInList(stepPanelEl, stepElements);
+
+                this.isSeparatorVisible = this.isVertical && stepPanelIndex !== stepElements.length - 1;
+            }
+        },
         getPTOptions(key) {
             const _ptm = key === 'root' ? this.ptmi : this.ptm;
 
@@ -91,6 +99,13 @@ export default {
                 'aria-controls': this.ariaControls,
                 'data-pc-name': 'steppanel',
                 'data-p-active': this.active
+            };
+        },
+        ptParams() {
+            return {
+                context: {
+                    active: this.active
+                }
             };
         },
         dataP() {

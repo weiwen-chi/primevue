@@ -31,6 +31,7 @@ export default {
                                     'Experience a modern, user-friendly premium application template featuring a variety of color schemes. Based on flat design principles, it is fully responsive and touch-optimized, built with SASS, CSS3, and HTML5.',
                                 liveHref: 'https://poseidon.primevue.org',
                                 docHref: 'https://poseidon.primevue.org/documentation',
+                                storeHref: 'https://primeui.store/templates/vue/poseidon',
                                 pattern: {
                                     className: 'select-none absolute z-[6] w-[72rem] md:w-[100rem] h-auto bottom-[25rem] -left-40 md:-bottom-12 xl:bottom-0 md:-left-48 xl:-left-28 opacity-90',
                                     src: 'https://primefaces.org/cdn/primevue/images/templates/poseidon/hero-background.png'
@@ -177,7 +178,7 @@ export default {
                     template and requires a separate purchase.`,
                             description4: `
                     Poseidon uses Figma as the design tool. It will be possible to download the Figma file after your purchase.
-                    You can <a href="https://www.figma.com/design/eMNbyxsMp3H0PQbMyyGK77/Preview-%7C-Poseidon?node-id=0-1&t=wJRSplRnKvjqju9S-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a> the Figma file before the purchase.
+                    You can <a href="https://www.figma.com/design/lRgoOE0jsHoL20okFMM5xT/Preview-%7C-Poseidon-%7C%C2%A02.0.0?node-id=0-1&t=Co2AkDgjOnN425Tz-1" target="_blank" rel="noopener noreferrer">preview the Figma file</a> the Figma file before the purchase.
                     Note that PrimeVue UI components are excluded from the Poseidon Figma file as they are available in PrimeOne for Figma only.`
                         }
                     },
