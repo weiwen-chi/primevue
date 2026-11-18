@@ -60,7 +60,7 @@ export interface TooltipOptions {
      */
     escape?: boolean | undefined;
     /**
-     * Automatically adjusts the element position when there is not enough space on the selected position.
+     * Sizes the tooltip to its content instead of stretching it.
      * @defaultValue true
      */
     fitContent?: boolean | undefined;
@@ -79,6 +79,22 @@ export interface TooltipOptions {
      * @defaultValue true
      */
     autoHide?: boolean | undefined;
+    /**
+     * Distance in pixels between the host element and the tooltip.
+     * @defaultValue 0
+     */
+    offset?: number | undefined;
+    /**
+     * Minimum distance in pixels kept between the tooltip and the edges of the viewport.
+     * @defaultValue 4
+     */
+    viewportPadding?: number | undefined;
+    /**
+     * When enabled, the tooltip moves to another side of the host when there is not enough space on the requested one.
+     * In all cases the tooltip is shifted so that it stays inside the viewport.
+     * @defaultValue true
+     */
+    flip?: boolean | undefined;
     /**
      * It generates scoped CSS variables using design tokens for the component.
      */

@@ -1,4 +1,4 @@
-import { addClass, createElement, fadeIn, findSingle, getAttribute, getOuterHeight, getOuterWidth, getViewport, getWindowScrollLeft, getWindowScrollTop, hasClass, isExist, isTouchDevice, removeClass } from '@primeuix/utils/dom';
+import { addClass, createElement, fadeIn, findSingle, getAttribute, getOuterHeight, getOuterWidth, getScrollableParents, getViewport, getWindowScrollLeft, getWindowScrollTop, hasClass, isExist, removeClass } from '@primeuix/utils/dom';
 import { isEmpty } from '@primeuix/utils/object';
 import { uuid } from '@primeuix/utils/uuid';
 import { ZIndex } from '@primeuix/utils/zindex';
@@ -22,6 +22,7 @@ const Tooltip = BaseTooltip.extend('tooltip', {
             target.$_ptooltipShowDelay = 0;
             target.$_ptooltipHideDelay = 0;
             target.$_ptooltipAutoHide = true;
+            this.setPositionOptions(target);
         } else if (typeof options.value === 'object' && options.value) {
             if (isEmpty(options.value.value) || options.value.value.trim() === '') return;
             else {
@@ -34,6 +35,7 @@ const Tooltip = BaseTooltip.extend('tooltip', {
                 target.$_ptooltipShowDelay = options.value.showDelay || 0;
                 target.$_ptooltipHideDelay = options.value.hideDelay || 0;
                 target.$_ptooltipAutoHide = !!options.value.autoHide === options.value.autoHide ? options.value.autoHide : true;
+                this.setPositionOptions(target, options.value);
             }
         }
 
@@ -62,6 +64,7 @@ const Tooltip = BaseTooltip.extend('tooltip', {
             target.$_ptooltipShowDelay = 0;
             target.$_ptooltipHideDelay = 0;
             target.$_ptooltipAutoHide = true;
+            this.setPositionOptions(target);
 
             this.bindEvents(target, options);
         } else if (typeof options.value === 'object' && options.value) {
@@ -79,6 +82,7 @@ const Tooltip = BaseTooltip.extend('tooltip', {
                 target.$_ptooltipShowDelay = options.value.showDelay || 0;
                 target.$_ptooltipHideDelay = options.value.hideDelay || 0;
                 target.$_ptooltipAutoHide = !!options.value.autoHide === options.value.autoHide ? options.value.autoHide : true;
+                this.setPositionOptions(target, options.value);
 
                 this.bindEvents(target, options);
             }
@@ -97,6 +101,11 @@ const Tooltip = BaseTooltip.extend('tooltip', {
         }
     },
     methods: {
+        setPositionOptions(target, value = {}) {
+            target.$_ptooltipOffset = Number.isFinite(value.offset) ? value.offset : 0;
+            target.$_ptooltipViewportPadding = Number.isFinite(value.viewportPadding) && value.viewportPadding >= 0 ? value.viewportPadding : 4;
+            target.$_ptooltipFlip = !!value.flip === value.flip ? value.flip : true;
+        },
         bindEvents(el, options) {
             const modifiers = el.$_ptooltipModifiers;
 
@@ -150,9 +159,7 @@ const Tooltip = BaseTooltip.extend('tooltip', {
         },
         bindScrollListener(el) {
             if (!el.$_ptooltipScrollHandler) {
-                el.$_ptooltipScrollHandler = new ConnectedOverlayScrollHandler(el, () => {
-                    this.hide(el);
-                });
+                el.$_ptooltipScrollHandler = new ConnectedOverlayScrollHandler(el, () => this.onScroll(el));
             }
 
             el.$_ptooltipScrollHandler.bindScrollListener();
@@ -211,12 +218,40 @@ const Tooltip = BaseTooltip.extend('tooltip', {
 
             event.code === 'Escape' && this.hide(event.currentTarget, hideDelay);
         },
-        onWindowResize(el) {
-            if (!isTouchDevice()) {
-                this.hide(el);
-            }
+        onScroll(el) {
+            if (!this.getTooltipElement(el)) return;
 
-            window.removeEventListener('resize', el.$_pWindowResizeEvent);
+            // hide when the host was scrolled out of the viewport or out of any scrollable ancestor, otherwise follow it
+            if (this.isHostHidden(el)) {
+                this.hide(el);
+            } else {
+                this.align(el);
+            }
+        },
+        isHostHidden(el) {
+            const rect = el.getBoundingClientRect();
+            const { width, height } = getViewport();
+            const outside = (box) => rect.bottom < box.top || rect.top > box.bottom || rect.right < box.left || rect.left > box.right;
+
+            if (outside({ top: 0, left: 0, bottom: height, right: width })) return true;
+
+            return getScrollableParents(el).some((parent) => parent instanceof Element && parent !== document.body && parent !== document.documentElement && outside(parent.getBoundingClientRect()));
+        },
+        onWindowResize(el) {
+            if (this.getTooltipElement(el)) {
+                this.align(el);
+            }
+        },
+        bindResizeObserver(el, tooltipElement) {
+            if (typeof ResizeObserver === 'undefined') return;
+
+            el.$_ptooltipResizeObserver = new ResizeObserver(() => {
+                // only react to content changes, not to the ones caused by our own alignment
+                if (this.getTooltipElement(el) === tooltipElement && el.$_ptooltipSize !== this.getSizeKey(tooltipElement)) {
+                    this.align(el);
+                }
+            });
+            el.$_ptooltipResizeObserver.observe(tooltipElement);
         },
         tooltipActions(el, options) {
             if (el.$_ptooltipDisabled || !isExist(el) || !el.$_ptooltipPendingShow) {
@@ -243,6 +278,7 @@ const Tooltip = BaseTooltip.extend('tooltip', {
             });
 
             this.bindScrollListener(el);
+            this.bindResizeObserver(el, tooltipElement);
             ZIndex.set('tooltip', tooltipElement, el.$_ptooltipZIndex);
         },
         show(el, options, showDelay) {
@@ -334,6 +370,11 @@ const Tooltip = BaseTooltip.extend('tooltip', {
         },
         remove(el) {
             if (el) {
+                if (el.$_ptooltipResizeObserver) {
+                    el.$_ptooltipResizeObserver.disconnect();
+                    el.$_ptooltipResizeObserver = null;
+                }
+
                 let tooltipElement = this.getTooltipElement(el);
 
                 if (tooltipElement && tooltipElement.parentElement) {
@@ -344,66 +385,139 @@ const Tooltip = BaseTooltip.extend('tooltip', {
                 el.$_ptooltipId = null;
             }
         },
+        getRequestedPosition(el) {
+            const modifiers = el.$_ptooltipModifiers || {};
+
+            return modifiers.top ? 'top' : modifiers.left ? 'left' : modifiers.bottom ? 'bottom' : 'right';
+        },
+        getFallbackOrder(position) {
+            switch (position) {
+                case 'top':
+                    return ['top', 'bottom', 'right', 'left'];
+                case 'bottom':
+                    return ['bottom', 'top', 'right', 'left'];
+                case 'left':
+                    return ['left', 'right', 'top', 'bottom'];
+                default:
+                    return ['right', 'left', 'top', 'bottom'];
+            }
+        },
+        clamp(value, min, max) {
+            // when the range is empty (content larger than the viewport) favor the start edge
+            return max < min ? min : Math.min(Math.max(value, min), max);
+        },
+        /**
+         * Returns the ideal tooltip position in viewport coordinates for a side and how many pixels
+         * it overflows the viewport on the main axis (0 when it fits).
+         */
+        computePosition(position, host, size, viewport, padding, offset) {
+            const hostCenterX = host.left + host.width / 2;
+            const hostCenterY = host.top + host.height / 2;
+            let left;
+            let top;
+            let overflow;
+
+            switch (position) {
+                case 'top':
+                    left = hostCenterX - size.width / 2;
+                    top = host.top - size.height - offset;
+                    overflow = Math.max(0, padding - top);
+                    break;
+                case 'bottom':
+                    left = hostCenterX - size.width / 2;
+                    top = host.bottom + offset;
+                    overflow = Math.max(0, top + size.height - (viewport.height - padding));
+                    break;
+                case 'left':
+                    left = host.left - size.width - offset;
+                    top = hostCenterY - size.height / 2;
+                    overflow = Math.max(0, padding - left);
+                    break;
+                default:
+                    left = host.right + offset;
+                    top = hostCenterY - size.height / 2;
+                    overflow = Math.max(0, left + size.width - (viewport.width - padding));
+                    break;
+            }
+
+            return { left, top, overflow };
+        },
         align(el) {
-            const modifiers = el.$_ptooltipModifiers;
+            const tooltipElement = this.getTooltipElement(el);
 
-            if (modifiers.top) {
-                this.alignTop(el);
+            if (!tooltipElement) return;
 
-                if (this.isOutOfBounds(el)) {
-                    this.alignBottom(el);
+            const arrowElement = this.getArrowElement(el);
+            const requested = this.getRequestedPosition(el);
+            const padding = el.$_ptooltipViewportPadding;
+            const offset = el.$_ptooltipOffset;
 
-                    if (this.isOutOfBounds(el)) {
-                        this.alignTop(el);
-                    }
+            // measure the tooltip at the origin so that its size does not depend on a previous position
+            this.preAlign(el, requested);
+
+            const size = { width: getOuterWidth(tooltipElement), height: getOuterHeight(tooltipElement) };
+            const viewport = getViewport();
+            const host = el.getBoundingClientRect();
+            const order = el.$_ptooltipFlip ? this.getFallbackOrder(requested) : [requested];
+
+            let best = null;
+            let position = requested;
+
+            for (const side of order) {
+                const candidate = this.computePosition(side, host, size, viewport, padding, offset);
+
+                if (!best || candidate.overflow < best.overflow) {
+                    best = candidate;
+                    position = side;
                 }
-            } else if (modifiers.left) {
-                this.alignLeft(el);
 
-                if (this.isOutOfBounds(el)) {
-                    this.alignRight(el);
+                if (candidate.overflow === 0) break;
+            }
 
-                    if (this.isOutOfBounds(el)) {
-                        this.alignTop(el);
+            const vertical = position === 'top' || position === 'bottom';
+            const minLeft = padding;
+            const maxLeft = viewport.width - size.width - padding;
+            const minTop = padding;
+            const maxTop = viewport.height - size.height - padding;
+            let { left, top } = best;
 
-                        if (this.isOutOfBounds(el)) {
-                            this.alignBottom(el);
-
-                            if (this.isOutOfBounds(el)) {
-                                this.alignLeft(el);
-                            }
-                        }
-                    }
-                }
-            } else if (modifiers.bottom) {
-                this.alignBottom(el);
-
-                if (this.isOutOfBounds(el)) {
-                    this.alignTop(el);
-
-                    if (this.isOutOfBounds(el)) {
-                        this.alignBottom(el);
-                    }
-                }
+            // shift along the cross axis (and along the main axis only when no side has enough room)
+            if (vertical) {
+                left = this.clamp(left, minLeft, maxLeft);
+                best.overflow > 0 && (top = this.clamp(top, minTop, maxTop));
             } else {
-                this.alignRight(el);
+                top = this.clamp(top, minTop, maxTop);
+                best.overflow > 0 && (left = this.clamp(left, minLeft, maxLeft));
+            }
 
-                if (this.isOutOfBounds(el)) {
-                    this.alignLeft(el);
+            this.preAlign(el, position);
 
-                    if (this.isOutOfBounds(el)) {
-                        this.alignTop(el);
+            tooltipElement.style.left = left + getWindowScrollLeft() + 'px';
+            tooltipElement.style.top = top + getWindowScrollTop() + 'px';
 
-                        if (this.isOutOfBounds(el)) {
-                            this.alignBottom(el);
+            if (arrowElement) {
+                // the arrow keeps pointing at the host center, but stays inside the tooltip body
+                if (vertical) {
+                    const inset = Math.min(8, size.width / 2);
 
-                            if (this.isOutOfBounds(el)) {
-                                this.alignRight(el);
-                            }
-                        }
-                    }
+                    arrowElement.style.top = position === 'bottom' ? '0' : null;
+                    arrowElement.style.bottom = position === 'top' ? '0' : null;
+                    arrowElement.style.right = null;
+                    arrowElement.style.left = this.clamp(host.left + host.width / 2 - left, inset, size.width - inset) + 'px';
+                } else {
+                    const inset = Math.min(8, size.height / 2);
+
+                    arrowElement.style.top = this.clamp(host.top + host.height / 2 - top, inset, size.height - inset) + 'px';
+                    arrowElement.style.bottom = null;
+                    arrowElement.style.right = position === 'left' ? '0' : null;
+                    arrowElement.style.left = position === 'right' ? '0' : null;
                 }
             }
+
+            el.$_ptooltipSize = this.getSizeKey(tooltipElement);
+        },
+        getSizeKey(tooltipElement) {
+            return `${tooltipElement.offsetWidth}x${tooltipElement.offsetHeight}`;
         },
         getHostOffset(el) {
             let offset = el.getBoundingClientRect();
@@ -412,115 +526,15 @@ const Tooltip = BaseTooltip.extend('tooltip', {
 
             return { left: targetLeft, top: targetTop };
         },
-        alignRight(el) {
-            this.preAlign(el, 'right');
-            let tooltipElement = this.getTooltipElement(el);
-            let arrowElement = this.getArrowElement(el);
-            let hostOffset = this.getHostOffset(el);
-            let left = hostOffset.left + getOuterWidth(el);
-            let top = hostOffset.top + (getOuterHeight(el) - getOuterHeight(tooltipElement)) / 2;
-
-            tooltipElement.style.left = left + 'px';
-            tooltipElement.style.top = top + 'px';
-
-            arrowElement.style.top = '50%';
-            arrowElement.style.right = null;
-            arrowElement.style.bottom = null;
-            arrowElement.style.left = '0';
-        },
-        alignLeft(el) {
-            this.preAlign(el, 'left');
-            let tooltipElement = this.getTooltipElement(el);
-            let arrowElement = this.getArrowElement(el);
-            let hostOffset = this.getHostOffset(el);
-            let left = hostOffset.left - getOuterWidth(tooltipElement);
-            let top = hostOffset.top + (getOuterHeight(el) - getOuterHeight(tooltipElement)) / 2;
-
-            tooltipElement.style.left = left + 'px';
-            tooltipElement.style.top = top + 'px';
-
-            arrowElement.style.top = '50%';
-            arrowElement.style.right = '0';
-            arrowElement.style.bottom = null;
-            arrowElement.style.left = null;
-        },
-        alignTop(el) {
-            this.preAlign(el, 'top');
-            let tooltipElement = this.getTooltipElement(el);
-            let arrowElement = this.getArrowElement(el);
-            let tooltipWidth = getOuterWidth(tooltipElement);
-            let elementWidth = getOuterWidth(el);
-            let { width: viewportWidth } = getViewport();
-            let hostOffset = this.getHostOffset(el);
-            let left = hostOffset.left + (elementWidth - tooltipWidth) / 2;
-            let top = hostOffset.top - getOuterHeight(tooltipElement);
-
-            if (left < 0) {
-                left = 0;
-            } else if (left + tooltipWidth > viewportWidth) {
-                left = Math.floor(hostOffset.left + elementWidth - tooltipWidth);
-            }
-
-            tooltipElement.style.left = left + 'px';
-            tooltipElement.style.top = top + 'px';
-
-            // The center of the target relative to the tooltip
-            let elementRelativeCenter = hostOffset.left - this.getHostOffset(tooltipElement).left + elementWidth / 2;
-
-            arrowElement.style.top = null;
-            arrowElement.style.right = null;
-            arrowElement.style.bottom = '0';
-            arrowElement.style.left = elementRelativeCenter + 'px';
-        },
-        alignBottom(el) {
-            this.preAlign(el, 'bottom');
-            let tooltipElement = this.getTooltipElement(el);
-            let arrowElement = this.getArrowElement(el);
-            let tooltipWidth = getOuterWidth(tooltipElement);
-            let elementWidth = getOuterWidth(el);
-            let { width: viewportWidth } = getViewport();
-            let hostOffset = this.getHostOffset(el);
-
-            let left = hostOffset.left + (elementWidth - tooltipWidth) / 2;
-            let top = hostOffset.top + getOuterHeight(el);
-
-            if (left < 0) {
-                left = 0;
-            } else if (left + tooltipWidth > viewportWidth) {
-                left = Math.floor(hostOffset.left + elementWidth - tooltipWidth);
-            }
-
-            tooltipElement.style.left = left + 'px';
-            tooltipElement.style.top = top + 'px';
-
-            // The center of the target relative to the tooltip
-            let elementRelativeCenter = hostOffset.left - this.getHostOffset(tooltipElement).left + elementWidth / 2;
-
-            arrowElement.style.top = '0';
-            arrowElement.style.right = null;
-            arrowElement.style.bottom = null;
-            arrowElement.style.left = elementRelativeCenter + 'px';
-        },
         preAlign(el, position) {
             let tooltipElement = this.getTooltipElement(el);
 
-            tooltipElement.style.left = -999 + 'px';
-            tooltipElement.style.top = -999 + 'px';
+            tooltipElement.style.left = '0px';
+            tooltipElement.style.top = '0px';
             removeClass(tooltipElement, `p-tooltip-${tooltipElement.$_ptooltipPosition}`);
             !this.isUnstyled() && addClass(tooltipElement, `p-tooltip-${position}`);
             tooltipElement.$_ptooltipPosition = position;
             tooltipElement.setAttribute('data-p-position', position);
-        },
-        isOutOfBounds(el) {
-            let tooltipElement = this.getTooltipElement(el);
-            let offset = tooltipElement.getBoundingClientRect();
-            let targetTop = offset.top;
-            let targetLeft = offset.left;
-            let width = getOuterWidth(tooltipElement);
-            let height = getOuterHeight(tooltipElement);
-            let viewport = getViewport();
-
-            return targetLeft + width > viewport.width || targetLeft < 0 || targetTop < 0 || targetTop + height > viewport.height;
         },
         getTarget(el) {
             return hasClass(el, 'p-inputwrapper') ? (findSingle(el, 'input') ?? el) : el;
