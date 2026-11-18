@@ -4,8 +4,8 @@
             <template v-for="(rowData, rowIndex) of value" :key="getRowKey(rowData, rowIndex)">
                 <DTBodyRow
                     :rowData="rowData"
-                    :index="rowIndex"
-                    :value="value"
+                    :index="getRowIndex(rowIndex)"
+                    :value="stableValue"
                     :columns="columns"
                     :frozenRow="frozenRow"
                     :empty="empty"
@@ -32,7 +32,7 @@
                     :editingRowKeys="editingRowKeys"
                     :templates="templates"
                     :editButtonProps="editButtonProps"
-                    :virtualScrollerContentProps="virtualScrollerContentProps"
+                    :virtualScrollerContentProps="virtualScrollerContentProps ? stableVirtualScrollerContentProps : null"
                     :isVirtualScrollerDisabled="isVirtualScrollerDisabled"
                     :editingMeta="editingMeta"
                     :rowGroupHeaderStyle="rowGroupHeaderStyle"
@@ -235,6 +235,30 @@ export default {
             rowGroupHeaderStyleObject: {}
         };
     },
+    created() {
+        // With virtual scrolling, the rendered rows array and the virtual scroller slot props are new objects on every
+        // range change. Handing them to every row would re-render all visible rows (and their cells) each time, so rows
+        // get stable views of them instead: reading through these stays reactive (e.g. row grouping still follows the
+        // current rows), while rows whose own props didn't change are skipped.
+        this.stableValue = new Proxy([], {
+            get: (_, key) => {
+                const value = this.value || [];
+                const result = value[key];
+
+                return typeof result === 'function' && key !== 'constructor' ? result.bind(value) : result;
+            },
+            has: (_, key) => key in (this.value || [])
+        });
+        this.stableVirtualScrollerContentProps = new Proxy(
+            {},
+            {
+                get: (_, key) => this.virtualScrollerContentProps?.[key],
+                has: (_, key) => !!this.virtualScrollerContentProps && key in this.virtualScrollerContentProps,
+                ownKeys: () => (this.virtualScrollerContentProps ? Reflect.ownKeys(this.virtualScrollerContentProps) : []),
+                getOwnPropertyDescriptor: (_, key) => (this.virtualScrollerContentProps && key in this.virtualScrollerContentProps ? { enumerable: true, configurable: true, value: this.virtualScrollerContentProps[key] } : undefined)
+            }
+        );
+    },
     mounted() {
         if (this.frozenRow) {
             this.updateFrozenRowStickyPosition();
@@ -255,7 +279,20 @@ export default {
     },
     methods: {
         getRowKey(rowData, rowIndex) {
-            return this.dataKey ? resolveFieldData(rowData, this.dataKey) : rowIndex;
+            if (this.dataKey) return resolveFieldData(rowData, this.dataKey);
+
+            // With virtual scrolling, rows are keyed by their absolute index modulo the number of rendered rows: rows
+            // that stay in the rendered range keep their key (and are not re-rendered), while the instances of rows
+            // leaving the range are reused for the entering ones instead of being unmounted/mounted.
+            const getItemOptions = this.getVirtualScrollerProp('getItemOptions');
+
+            return getItemOptions && this.value ? getItemOptions(rowIndex).index % this.value.length : rowIndex;
+        },
+        getRowIndex(index) {
+            // absolute index of a rendered row (differs from the rendered index with virtual scrolling)
+            const getItemOptions = this.getVirtualScrollerProp('getItemOptions');
+
+            return getItemOptions ? getItemOptions(index).index : index;
         },
         updateFrozenRowStickyPosition() {
             this.$el.style.top = getOuterHeight(this.$el.previousElementSibling) + 'px';

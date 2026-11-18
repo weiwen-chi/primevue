@@ -477,9 +477,9 @@ export default {
     },
     computed: {
         rowIndex() {
-            const getItemOptions = this.getVirtualScrollerProp('getItemOptions');
-
-            return getItemOptions ? getItemOptions(this.index).index : this.index;
+            // TableBody passes the absolute index (resolved through the virtual scroller), keeping the props of a row
+            // stable while the virtual range shifts
+            return this.index;
         },
         rowStyles() {
             return this.rowStyle?.(this.rowData);
